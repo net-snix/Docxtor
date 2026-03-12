@@ -7,6 +7,8 @@ namespace Docxtor.Cli.Cli;
 
 internal static class AppRunCommand
 {
+    private const long MaxRequestSizeBytes = 1 * 1024 * 1024;
+
     private static readonly JsonSerializerOptions RequestJsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -164,6 +166,7 @@ internal static class AppRunCommand
     {
         try
         {
+            EnsureRequestWithinSizeLimit(requestPath);
             await using var stream = File.OpenRead(requestPath);
             var request = await JsonSerializer.DeserializeAsync<AppRunRequest>(
                 stream,
@@ -171,10 +174,22 @@ internal static class AppRunCommand
                 cancellationToken);
             return (request, null);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
         {
             return (null, ex.Message);
         }
+    }
+
+    private static void EnsureRequestWithinSizeLimit(string requestPath)
+    {
+        var requestLength = new FileInfo(requestPath).Length;
+        if (requestLength <= MaxRequestSizeBytes)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"Request file is too large ({requestLength} bytes). Maximum supported size is {MaxRequestSizeBytes} bytes.");
     }
 
     private static DiagnosticMessage CreateError(string code, string message)

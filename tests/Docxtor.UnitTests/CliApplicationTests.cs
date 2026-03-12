@@ -104,6 +104,34 @@ public sealed class CliApplicationTests
             events[4].GetProperty("errors").EnumerateArray().First().GetProperty("code").GetString());
     }
 
+    [Fact]
+    public async Task RunAsync_app_run_rejects_oversized_request_file()
+    {
+        using var sandbox = new TemporaryDirectory();
+        var requestPath = sandbox.WriteOversizedRequest();
+
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+        var exitCode = await CliApplication.RunAsync(
+            ["app-run", "--request", requestPath],
+            stdout,
+            stderr,
+            sandbox.Path,
+            () => new FakeMerger(_ => { }, CreateSuccessResult));
+
+        Assert.Equal(ExitCodeMapper.ToExitCode(FailureCode.InvalidArguments), exitCode);
+        Assert.Equal(string.Empty, stderr.ToString());
+
+        var events = ParseEvents(stdout);
+        Assert.Single(events);
+        Assert.Equal("failed", events[0].GetProperty("type").GetString());
+        Assert.Equal("InvalidArguments", events[0].GetProperty("failureCode").GetString());
+        Assert.Equal(
+            "invalid-request",
+            events[0].GetProperty("errors").EnumerateArray().First().GetProperty("code").GetString());
+        Assert.Contains("Request file is too large", events[0].GetProperty("message").GetString());
+    }
+
     private static MergeResult CreateSuccessResult(MergeJob job)
     {
         return new MergeResult
@@ -197,6 +225,15 @@ public sealed class CliApplicationTests
         {
             var requestPath = System.IO.Path.Combine(Path, "request.json");
             File.WriteAllText(requestPath, JsonSerializer.Serialize(request));
+            return requestPath;
+        }
+
+        public string WriteOversizedRequest()
+        {
+            const int maxBytes = 1 * 1024 * 1024;
+            var requestPath = System.IO.Path.Combine(Path, "request.json");
+            var content = new string('x', maxBytes + 1);
+            File.WriteAllText(requestPath, content);
             return requestPath;
         }
 
