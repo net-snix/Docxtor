@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Docxtor.Cli/Docxtor.Cli.csproj" />
+    <Project Path="src/Docxtor.Core/Docxtor.Core.csproj" />
+    <Project Path="src/Docxtor.OpenXml/Docxtor.OpenXml.csproj" />
+    <Project Path="src/Docxtor.Reporting/Docxtor.Reporting.csproj" />
+    <Project Path="src/Docxtor.Validation/Docxtor.Validation.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Docxtor.IntegrationTests/Docxtor.IntegrationTests.csproj" />
+    <Project Path="tests/Docxtor.UnitTests/Docxtor.UnitTests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,10 @@
+bin/
+obj/
+.DS_Store
+TestResults/
+*.user
+*.suo
+*.tmp
+*.docx
+*.json
+!/docs/*.json
