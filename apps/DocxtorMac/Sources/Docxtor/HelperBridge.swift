@@ -153,6 +153,9 @@ protocol MergeRunner {
 }
 
 final class ProcessMergeRunner: MergeRunner {
+    private static let ownerOnlyDirectoryPermissions = NSNumber(value: Int16(0o700))
+    private static let ownerOnlyFilePermissions = NSNumber(value: Int16(0o600))
+
     private let bundle: Bundle
     private let environment: [String: String]
     private let fileManager: FileManager
@@ -172,16 +175,11 @@ final class ProcessMergeRunner: MergeRunner {
         onEvent: @escaping @Sendable (Result<HelperEvent, Error>) -> Void
     ) throws -> MergeRunControlling {
         let helperURL = try resolveHelperURL()
-        let requestDirectory = fileManager.temporaryDirectory.appending(path: "DocxtorMac-\(UUID().uuidString)", directoryHint: .isDirectory)
-        try fileManager.createDirectory(at: requestDirectory, withIntermediateDirectories: true)
-
-        let requestURL = requestDirectory.appending(path: "request.json", directoryHint: .notDirectory)
-        let requestData = try JSONEncoder().encode(request)
-        try requestData.write(to: requestURL, options: .atomic)
+        let requestFiles = try createRequestFiles(request: request)
 
         let process = Process()
         process.executableURL = helperURL
-        process.arguments = ["app-run", "--request", requestURL.path]
+        process.arguments = ["app-run", "--request", requestFiles.requestURL.path]
         process.environment = environment
 
         let stdoutPipe = Pipe()
@@ -191,7 +189,7 @@ final class ProcessMergeRunner: MergeRunner {
 
         let control = ProcessMergeRunControl(
             process: process,
-            cleanupURL: requestDirectory,
+            cleanupURL: requestFiles.directoryURL,
             fileManager: fileManager
         )
 
@@ -226,6 +224,27 @@ final class ProcessMergeRunner: MergeRunner {
         }
 
         throw HelperBridgeError.helperMissing
+    }
+
+    func createRequestFiles(request: AppRunRequest) throws -> (directoryURL: URL, requestURL: URL) {
+        let requestDirectory = fileManager.temporaryDirectory.appending(path: "DocxtorMac-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try fileManager.createDirectory(
+            at: requestDirectory,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: Self.ownerOnlyDirectoryPermissions]
+        )
+
+        let requestURL = requestDirectory.appending(path: "request.json", directoryHint: .notDirectory)
+        let requestData = try JSONEncoder().encode(request)
+        guard fileManager.createFile(
+            atPath: requestURL.path,
+            contents: requestData,
+            attributes: [.posixPermissions: Self.ownerOnlyFilePermissions]
+        ) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+
+        return (requestDirectory, requestURL)
     }
 }
 
