@@ -40,6 +40,12 @@ internal sealed class NumberingMerger
         var sourceAbstractNumbers = sourceNumbering.Elements<AbstractNum>()
             .Where(item => item.AbstractNumberId?.Value is not null)
             .ToDictionary(item => item.AbstractNumberId!.Value);
+        var destinationAbstractBySignature = destinationNumbering.Elements<AbstractNum>()
+            .Where(item => item.AbstractNumberId?.Value is not null)
+            .ToDictionary(
+                NormalizeAbstractNum,
+                item => item.AbstractNumberId!.Value,
+                StringComparer.Ordinal);
         var numIdMap = new Dictionary<int, int>();
         var abstractNumIdMap = new Dictionary<int, int>();
 
@@ -59,10 +65,8 @@ internal sealed class NumberingMerger
 
             if (!abstractNumIdMap.TryGetValue(sourceAbstractId, out var destinationAbstractId))
             {
-                var existingAbstract = destinationNumbering.Elements<AbstractNum>().FirstOrDefault(item =>
-                    NormalizeAbstractNum(item) == NormalizeAbstractNum(sourceAbstractNum));
-
-                if (existingAbstract?.AbstractNumberId?.Value is int existingAbstractId)
+                var sourceSignature = NormalizeAbstractNum(sourceAbstractNum);
+                if (destinationAbstractBySignature.TryGetValue(sourceSignature, out var existingAbstractId))
                 {
                     destinationAbstractId = existingAbstractId;
                 }
@@ -72,6 +76,7 @@ internal sealed class NumberingMerger
                     var clonedAbstract = (AbstractNum)sourceAbstractNum.CloneNode(true);
                     clonedAbstract.AbstractNumberId = destinationAbstractId;
                     InsertAbstractNumber(destinationNumbering, clonedAbstract);
+                    destinationAbstractBySignature[sourceSignature] = destinationAbstractId;
                     context.RemapSummary.AbstractNumbering++;
                 }
 
