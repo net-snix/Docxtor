@@ -1,4 +1,5 @@
 using Docxtor.Cli.Cli;
+using YamlDotNet.Core;
 
 namespace Docxtor.UnitTests;
 
@@ -36,6 +37,23 @@ public sealed class ManifestLoaderTests
 
         var exception = Assert.Throws<InvalidOperationException>(() => new ManifestLoader().Load(manifestPath));
         Assert.Contains("Config file is too large", exception.Message);
+    }
+
+    [Fact]
+    public void Load_rejects_yaml_with_duplicate_keys()
+    {
+        using var sandbox = new TemporaryDirectory();
+        var manifestPath = Path.Combine(sandbox.Path, "manifest.yaml");
+        File.WriteAllText(
+            manifestPath,
+            """
+            output: one.docx
+            output: two.docx
+            inputs:
+              - source.docx
+            """);
+
+        Assert.Throws<YamlException>(() => new ManifestLoader().Load(manifestPath));
     }
 
     private sealed class TemporaryDirectory : IDisposable

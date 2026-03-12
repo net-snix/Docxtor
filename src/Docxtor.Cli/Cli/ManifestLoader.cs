@@ -16,6 +16,7 @@ internal sealed class ManifestLoader
 
     private readonly IDeserializer _yamlDeserializer = new DeserializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
+        .WithDuplicateKeyChecking()
         .IgnoreUnmatchedProperties()
         .Build();
 
