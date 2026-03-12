@@ -44,6 +44,8 @@ dotnet run --project /Users/espenmac/Code/Docxtor/src/Docxtor.Cli -- \
   --config merge.yaml
 ```
 
+Config manifests larger than 1 MiB are rejected (fail-fast guard against accidental or malicious oversized inputs).
+
 macOS app:
 
 ```bash
