@@ -65,13 +65,24 @@ public sealed class ReferentialIntegrityValidator
     private static void ValidateRelationships(OpenXmlPart part, List<DiagnosticMessage> messages)
     {
         var relationshipIds = ReadRelationshipIds(part.RootElement).Distinct(StringComparer.Ordinal);
+        var internalRelationshipIds = part.Parts
+            .Select(child => child.RelationshipId)
+            .Where(static id => !string.IsNullOrWhiteSpace(id))
+            .ToHashSet(StringComparer.Ordinal);
+        var externalRelationshipIds = part.ExternalRelationships
+            .Select(child => child.Id)
+            .Where(static id => !string.IsNullOrWhiteSpace(id))
+            .ToHashSet(StringComparer.Ordinal);
+        var hyperlinkRelationshipIds = part.HyperlinkRelationships
+            .Select(child => child.Id)
+            .Where(static id => !string.IsNullOrWhiteSpace(id))
+            .ToHashSet(StringComparer.Ordinal);
+
         foreach (var relationshipId in relationshipIds)
         {
-            var hasInternal = part.Parts.Any(child => child.RelationshipId == relationshipId);
-            var hasExternal = part.ExternalRelationships.Any(child => child.Id == relationshipId);
-            var hasHyperlink = part.HyperlinkRelationships.Any(child => child.Id == relationshipId);
-
-            if (!hasInternal && !hasExternal && !hasHyperlink)
+            if (!internalRelationshipIds.Contains(relationshipId) &&
+                !externalRelationshipIds.Contains(relationshipId) &&
+                !hyperlinkRelationshipIds.Contains(relationshipId))
             {
                 messages.Add(new DiagnosticMessage
                 {
