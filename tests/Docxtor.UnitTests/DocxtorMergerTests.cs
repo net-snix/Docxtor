@@ -40,6 +40,25 @@ public sealed class DocxtorMergerTests
     }
 
     [Fact]
+    public async Task MergeAsync_reuses_preflight_for_preflight_aware_backends()
+    {
+        var backend = new FakeMergeBackend();
+        var merger = new DocxtorMerger([backend]);
+
+        var result = await merger.MergeAsync(new MergeJob
+        {
+            Inputs = [InputDocument.FromPath("/tmp/one.docx", 0)],
+            BackendHint = backend.Name,
+        });
+
+        Assert.True(result.Success);
+        Assert.Equal(1, backend.InspectCalls);
+        Assert.Equal(1, backend.MergeCalls);
+        Assert.Equal(0, backend.LegacyMergeCalls);
+        Assert.Same(backend.LastPreflightResult, backend.LastMergePreflightResult);
+    }
+
+    [Fact]
     public async Task MergeAsync_reports_progress_in_expected_order()
     {
         var backend = new FakeMergeBackend();
@@ -78,9 +97,17 @@ public sealed class DocxtorMergerTests
             });
     }
 
-    private sealed class FakeMergeBackend : IMergeBackend
+    private sealed class FakeMergeBackend : IPreflightAwareMergeBackend
     {
+        public int InspectCalls { get; private set; }
+
+        public int LegacyMergeCalls { get; private set; }
+
         public int MergeCalls { get; private set; }
+
+        public PreflightResult? LastPreflightResult { get; private set; }
+
+        public PreflightResult? LastMergePreflightResult { get; private set; }
 
         public string Name => "fake";
 
@@ -90,7 +117,8 @@ public sealed class DocxtorMergerTests
 
         public Task<PreflightResult> InspectAsync(IReadOnlyList<InputDocument> inputs, MergePolicy policy, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new PreflightResult
+            InspectCalls++;
+            LastPreflightResult = new PreflightResult
             {
                 Success = true,
                 Backend = Name,
@@ -99,7 +127,9 @@ public sealed class DocxtorMergerTests
                 {
                     InputPath = input.PathOrId,
                 }).ToArray(),
-            });
+            };
+
+            return Task.FromResult(LastPreflightResult);
         }
 
         public Task<MergeResult> MergeAsync(MergeJob job, CancellationToken cancellationToken = default)
@@ -110,7 +140,22 @@ public sealed class DocxtorMergerTests
             IProgress<MergeProgressUpdate>? progress = null,
             CancellationToken cancellationToken = default)
         {
+            LegacyMergeCalls++;
+            return MergeAsync(
+                job,
+                LastPreflightResult ?? throw new InvalidOperationException("Expected preflight before merge."),
+                progress,
+                cancellationToken);
+        }
+
+        public Task<MergeResult> MergeAsync(
+            MergeJob job,
+            PreflightResult preflight,
+            IProgress<MergeProgressUpdate>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
             MergeCalls++;
+            LastMergePreflightResult = preflight;
 
             foreach (var input in job.Inputs.OrderBy(input => input.SourceIndex))
             {

@@ -52,6 +52,11 @@ public sealed class DocxtorMerger(IEnumerable<IMergeBackend> backends) : IDocxMe
             return result;
         }
 
+        if (backend is IPreflightAwareMergeBackend preflightAwareBackend)
+        {
+            return await preflightAwareBackend.MergeAsync(job, preflight, progress, cancellationToken);
+        }
+
         return await backend.MergeAsync(job, progress, cancellationToken);
     }
 

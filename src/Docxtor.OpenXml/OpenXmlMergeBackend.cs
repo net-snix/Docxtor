@@ -6,7 +6,7 @@ using Docxtor.Validation;
 
 namespace Docxtor.OpenXml;
 
-public sealed class OpenXmlMergeBackend : IMergeBackend
+public sealed class OpenXmlMergeBackend : IPreflightAwareMergeBackend
 {
     private readonly OpenXmlMergeExecutor _executor;
     private readonly OpenXmlPreflightInspector _inspector;
@@ -90,30 +90,44 @@ public sealed class OpenXmlMergeBackend : IMergeBackend
         CancellationToken cancellationToken = default)
     {
         var preflight = await _inspector.InspectAsync(job.Inputs, job.Policy, cancellationToken);
+        return await MergeAsync(job, preflight, progress, cancellationToken);
+    }
+
+    public async Task<MergeResult> MergeAsync(
+        MergeJob job,
+        PreflightResult preflight,
+        IProgress<MergeProgressUpdate>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
         if (!preflight.Success)
         {
-            return new MergeResult
-            {
-                Success = false,
-                FailureCode = FailureCode.PreflightCapabilityFailure,
-                Report = new MergeReport
-                {
-                    CorrelationId = job.CorrelationId,
-                    Status = "Failed",
-                    StartedAtUtc = DateTimeOffset.UtcNow,
-                    FinishedAtUtc = DateTimeOffset.UtcNow,
-                    OutputPath = job.OutputPath,
-                    Backend = Name,
-                    Policy = job.Policy,
-                    InputSummaries = job.Inputs,
-                    PreflightInventories = preflight.Inputs,
-                    PreflightWarnings = preflight.Warnings,
-                    Errors = preflight.Errors,
-                    FailureCode = FailureCode.PreflightCapabilityFailure,
-                },
-            };
+            return BuildPreflightFailure(job, preflight);
         }
 
         return await _executor.ExecuteAsync(job, preflight, progress, cancellationToken);
+    }
+
+    private MergeResult BuildPreflightFailure(MergeJob job, PreflightResult preflight)
+    {
+        return new MergeResult
+        {
+            Success = false,
+            FailureCode = FailureCode.PreflightCapabilityFailure,
+            Report = new MergeReport
+            {
+                CorrelationId = job.CorrelationId,
+                Status = "Failed",
+                StartedAtUtc = DateTimeOffset.UtcNow,
+                FinishedAtUtc = DateTimeOffset.UtcNow,
+                OutputPath = job.OutputPath,
+                Backend = Name,
+                Policy = job.Policy,
+                InputSummaries = job.Inputs,
+                PreflightInventories = preflight.Inputs,
+                PreflightWarnings = preflight.Warnings,
+                Errors = preflight.Errors,
+                FailureCode = FailureCode.PreflightCapabilityFailure,
+            },
+        };
     }
 }
