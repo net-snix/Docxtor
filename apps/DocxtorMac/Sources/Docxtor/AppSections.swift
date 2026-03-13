@@ -301,7 +301,8 @@ private struct DeckAreaView: View, @MainActor Equatable {
                     } else {
                         ScrollView {
                             LazyVStack(spacing: 0) {
-                                ForEach(Array(inputItems.enumerated()), id: \.element.id) { index, item in
+                                ForEach(inputItems.indices, id: \.self) { index in
+                                    let item = inputItems[index]
                                     DeckRow(
                                         index: index + 1,
                                         item: item,
