@@ -234,6 +234,30 @@ final class MergeViewModelTests: XCTestCase {
         XCTAssertFalse(preferences.insertSourceFileTitles)
     }
 
+    func testResolvedPathsRefreshWhenInputsAndOverrideChange() {
+        let viewModel = MergeViewModel(runner: TestMergeRunner(), preferences: TestPreferences())
+
+        XCTAssertNil(viewModel.resolvedOutputURL)
+        XCTAssertNil(viewModel.resolvedReportURL)
+
+        viewModel.addInputURLs([URL(fileURLWithPath: "/tmp/docs/one.docx")])
+        XCTAssertEqual(viewModel.resolvedOutputURL, URL(fileURLWithPath: "/tmp/docs/main.docx"))
+        XCTAssertEqual(viewModel.resolvedReportURL, URL(fileURLWithPath: "/tmp/docs/main.merge-report.json"))
+
+        let customOutput = URL(fileURLWithPath: "/tmp/custom/final.docx")
+        viewModel.setOutputURL(customOutput)
+        XCTAssertEqual(viewModel.resolvedOutputURL, customOutput)
+        XCTAssertEqual(viewModel.resolvedReportURL, URL(fileURLWithPath: "/tmp/custom/final.merge-report.json"))
+
+        viewModel.resetToSuggestedOutput()
+        XCTAssertEqual(viewModel.resolvedOutputURL, URL(fileURLWithPath: "/tmp/docs/main.docx"))
+        XCTAssertEqual(viewModel.resolvedReportURL, URL(fileURLWithPath: "/tmp/docs/main.merge-report.json"))
+
+        viewModel.clearInputs()
+        XCTAssertNil(viewModel.resolvedOutputURL)
+        XCTAssertNil(viewModel.resolvedReportURL)
+    }
+
     func testClearInputsResetsToIdleWithoutPromptCopy() {
         let runner = TestMergeRunner()
         let preferences = TestPreferences()
