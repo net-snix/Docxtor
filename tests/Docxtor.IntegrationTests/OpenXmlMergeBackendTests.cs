@@ -187,6 +187,40 @@ public sealed class OpenXmlMergeBackendTests
     }
 
     [Fact]
+    public async Task InspectAsync_reports_basic_document_feature_inventory()
+    {
+        using var workspace = new TemporaryTestDirectory();
+        var basicDocument = DocxFixtureFactory.CreateBasicDocument(
+            System.IO.Path.Combine(workspace.Path, "basic.docx"),
+            "Alpha paragraph",
+            "Alpha cell",
+            "https://example.com/alpha",
+            "Alpha link");
+
+        var result = await new OpenXmlMergeBackend().InspectAsync(
+            [InputDocument.FromPath(basicDocument, 0)],
+            new MergePolicy());
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Errors.Select(error => error.Message)));
+
+        var inventory = Assert.Single(result.Inputs);
+        Assert.False(inventory.HasHeaders);
+        Assert.False(inventory.HasFooters);
+        Assert.False(inventory.HasTrackedChanges);
+        Assert.False(inventory.HasExternalImages);
+        Assert.True(inventory.HasExternalHyperlinks);
+        Assert.False(inventory.HasBookmarks);
+        Assert.False(inventory.HasNumbering);
+        Assert.False(inventory.HasAltChunk);
+        Assert.False(inventory.HasFields);
+        Assert.False(inventory.HasContentControls);
+        Assert.True(inventory.PartCounts.ContainsKey(nameof(MainDocumentPart)));
+        Assert.True(inventory.PartCounts.ContainsKey(nameof(ImagePart)));
+        Assert.True(inventory.RelationshipCounts.TryGetValue(HyperlinkRelationshipType, out var hyperlinkCount) && hyperlinkCount >= 1);
+        Assert.True(inventory.RelationshipCounts.TryGetValue(ImageRelationshipType, out var imageCount) && imageCount >= 1);
+    }
+
+    [Fact]
     public async Task MergeAsync_preserves_referenced_footnotes()
     {
         using var workspace = new TemporaryTestDirectory();
@@ -276,6 +310,12 @@ public sealed class OpenXmlMergeBackendTests
     {
         return new DocxtorMerger([new OpenXmlMergeBackend()]);
     }
+
+    private const string HyperlinkRelationshipType =
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
+
+    private const string ImageRelationshipType =
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
 
     private static MergeJob CreateJob(string outputPath, params string[] inputs)
     {
