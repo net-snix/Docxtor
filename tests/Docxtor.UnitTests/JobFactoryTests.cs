@@ -66,6 +66,64 @@ public sealed class JobFactoryTests
         Assert.Equal("Template path must be different from every input DOCX.", error);
     }
 
+    [Fact]
+    public void Build_rejects_output_path_that_is_a_symlink_to_input()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var sandbox = new TemporaryDirectory();
+        var inputPath = Path.Combine(sandbox.Path, "source.docx");
+        var outputAliasPath = Path.Combine(sandbox.Path, "output-alias.docx");
+        File.WriteAllText(inputPath, "input");
+        File.CreateSymbolicLink(outputAliasPath, inputPath);
+
+        var (job, _, error) = new JobFactory().Build(
+            new CommandLineOptions
+            {
+                Inputs = [inputPath],
+                OutputPath = outputAliasPath,
+            },
+            manifest: null,
+            sandbox.Path);
+
+        Assert.Null(job);
+        Assert.Equal(
+            $"Output path '{outputAliasPath}' must be different from input '{inputPath}'.",
+            error);
+    }
+
+    [Fact]
+    public void Build_rejects_template_path_that_is_a_symlink_to_input()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var sandbox = new TemporaryDirectory();
+        var inputPath = Path.Combine(sandbox.Path, "source.docx");
+        var templateAliasPath = Path.Combine(sandbox.Path, "template-alias.docx");
+        File.WriteAllText(inputPath, "input");
+        File.CreateSymbolicLink(templateAliasPath, inputPath);
+
+        var (job, _, error) = new JobFactory().Build(
+            new CommandLineOptions
+            {
+                Inputs = [inputPath],
+                OutputPath = Path.Combine(sandbox.Path, "merged.docx"),
+                ReportPath = Path.Combine(sandbox.Path, "merge-report.json"),
+                TemplatePath = templateAliasPath,
+            },
+            manifest: null,
+            sandbox.Path);
+
+        Assert.Null(job);
+        Assert.Equal("Template path must be different from every input DOCX.", error);
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public TemporaryDirectory()

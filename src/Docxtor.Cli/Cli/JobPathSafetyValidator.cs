@@ -15,6 +15,9 @@ internal static class JobPathSafetyValidator
         string reportPath,
         string? templatePath)
     {
+        var normalizedInputs = inputs
+            .Select(input => (Input: input, NormalizedPath: Normalize(input.PathOrId)))
+            .ToArray();
         var normalizedOutputPath = Normalize(outputPath);
         var normalizedReportPath = Normalize(reportPath);
 
@@ -23,10 +26,8 @@ internal static class JobPathSafetyValidator
             return "Output path and report path must be different files.";
         }
 
-        foreach (var input in inputs)
+        foreach (var (input, normalizedInputPath) in normalizedInputs)
         {
-            var normalizedInputPath = Normalize(input.PathOrId);
-
             if (PathComparer.Equals(normalizedInputPath, normalizedOutputPath))
             {
                 return $"Output path '{outputPath}' must be different from input '{input.PathOrId}'.";
@@ -54,7 +55,7 @@ internal static class JobPathSafetyValidator
             return "Report path must be different from the template path.";
         }
 
-        if (inputs.Any(input => PathComparer.Equals(Normalize(input.PathOrId), normalizedTemplatePath)))
+        if (normalizedInputs.Any(item => PathComparer.Equals(item.NormalizedPath, normalizedTemplatePath)))
         {
             return "Template path must be different from every input DOCX.";
         }
@@ -63,5 +64,62 @@ internal static class JobPathSafetyValidator
     }
 
     private static string Normalize(string path)
-        => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+        => Path.TrimEndingDirectorySeparator(ResolvePathAlias(Path.GetFullPath(path)));
+
+    private static string ResolvePathAlias(string fullPath)
+    {
+        if (File.Exists(fullPath))
+        {
+            return ResolveExistingPath(new FileInfo(fullPath));
+        }
+
+        if (Directory.Exists(fullPath))
+        {
+            return ResolveExistingPath(new DirectoryInfo(fullPath));
+        }
+
+        var parentDirectory = Path.GetDirectoryName(fullPath);
+        if (string.IsNullOrWhiteSpace(parentDirectory))
+        {
+            return fullPath;
+        }
+
+        return Path.Combine(
+            ResolveDirectoryAlias(parentDirectory),
+            Path.GetFileName(fullPath));
+    }
+
+    private static string ResolveDirectoryAlias(string directoryPath)
+    {
+        var fullDirectoryPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directoryPath));
+        if (Directory.Exists(fullDirectoryPath))
+        {
+            return ResolveExistingPath(new DirectoryInfo(fullDirectoryPath));
+        }
+
+        var parentDirectory = Path.GetDirectoryName(fullDirectoryPath);
+        if (string.IsNullOrWhiteSpace(parentDirectory))
+        {
+            return fullDirectoryPath;
+        }
+
+        return Path.Combine(
+            ResolveDirectoryAlias(parentDirectory),
+            Path.GetFileName(fullDirectoryPath));
+    }
+
+    private static string ResolveExistingPath(FileSystemInfo pathInfo)
+    {
+        try
+        {
+            var resolvedPath = pathInfo.ResolveLinkTarget(returnFinalTarget: true)?.FullName;
+            return string.IsNullOrWhiteSpace(resolvedPath)
+                ? Path.GetFullPath(pathInfo.FullName)
+                : Path.GetFullPath(resolvedPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return Path.GetFullPath(pathInfo.FullName);
+        }
+    }
 }
