@@ -107,6 +107,39 @@ internal static class DocxFixtureFactory
         return path;
     }
 
+    public static string CreateStyledDocument(
+        string path,
+        string paragraphText,
+        string styleId,
+        string styleName)
+    {
+        using var document = CreateEmptyDocument(path, out var mainPart, out var body);
+        var stylesPart = mainPart.AddNewPart<StyleDefinitionsPart>();
+        stylesPart.Styles = new Styles(
+            new Style
+            {
+                Type = StyleValues.Paragraph,
+                StyleId = styleId,
+                CustomStyle = OnOffValue.FromBoolean(true),
+            });
+
+        var style = stylesPart.Styles.GetFirstChild<Style>()!;
+        style.Append(
+            new StyleName { Val = styleName },
+            new PrimaryStyle());
+
+        body.Append(
+            new Paragraph(
+                new ParagraphProperties(
+                    new ParagraphStyleId { Val = styleId }),
+                new Run(new Text(paragraphText))));
+        body.Append(CreateSectionProperties());
+
+        mainPart.Document!.Save();
+        stylesPart.Styles.Save();
+        return path;
+    }
+
     public static string CreateHeaderFooterDocument(string path, string bodyText, string headerText, string footerText)
     {
         using var document = CreateEmptyDocument(path, out var mainPart, out var body);
