@@ -173,6 +173,7 @@ struct WorkspaceSurfaceView: View {
             onDrop: onDrop,
             onDropTargetChange: onDropTargetChange
         )
+        .equatable()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
@@ -215,7 +216,7 @@ struct WorkspaceSurfaceView: View {
     }
 }
 
-private struct DeckAreaView: View {
+private struct DeckAreaView: View, @MainActor Equatable {
     let inputItems: [InputDocument]
     let selectedIDs: Set<InputDocument.ID>
     let isDropTargeted: Bool
@@ -232,6 +233,16 @@ private struct DeckAreaView: View {
     let onMoveDown: () -> Void
     let onDrop: ([URL]) -> Bool
     let onDropTargetChange: (Bool) -> Void
+
+    static func == (lhs: DeckAreaView, rhs: DeckAreaView) -> Bool {
+        lhs.inputItems == rhs.inputItems &&
+        lhs.selectedIDs == rhs.selectedIDs &&
+        lhs.isDropTargeted == rhs.isDropTargeted &&
+        lhs.canRemoveSelected == rhs.canRemoveSelected &&
+        lhs.canMoveSelectionUp == rhs.canMoveSelectionUp &&
+        lhs.canMoveSelectionDown == rhs.canMoveSelectionDown &&
+        lhs.contentMinHeight == rhs.contentMinHeight
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
