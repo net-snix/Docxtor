@@ -229,9 +229,15 @@ public sealed class ReferentialIntegrityValidator
             .ToHashSet(StringComparer.Ordinal)
             ?? [];
 
-        foreach (var reference in references.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.Ordinal))
+        var seenReferences = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var reference in references)
         {
-            if (reference is not null && !definitionIds.Contains(reference))
+            if (string.IsNullOrWhiteSpace(reference) || !seenReferences.Add(reference))
+            {
+                continue;
+            }
+
+            if (!definitionIds.Contains(reference))
             {
                 messages.Add(new DiagnosticMessage
                 {
@@ -281,12 +287,21 @@ public sealed class ReferentialIntegrityValidator
         IEnumerable<string?> values,
         List<DiagnosticMessage> messages)
     {
-        var duplicates = values
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .GroupBy(value => value, StringComparer.Ordinal)
-            .Where(group => group.Count() > 1)
-            .Select(group => group.Key)
-            .ToArray();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var duplicates = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var value in values)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            if (!seen.Add(value))
+            {
+                duplicates.Add(value);
+            }
+        }
 
         foreach (var duplicate in duplicates)
         {
