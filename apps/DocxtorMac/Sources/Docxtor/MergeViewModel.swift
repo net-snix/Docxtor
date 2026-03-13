@@ -75,6 +75,8 @@ final class MergeViewModel: ObservableObject {
     @Published private(set) var showsProgress = false
     @Published private(set) var reportPreview = ""
     @Published private(set) var reportActivities: [MergeActivityItem] = []
+    @Published private(set) var resolvedOutputURL: URL?
+    @Published private(set) var resolvedReportURL: URL?
     @Published private(set) var outputOverrideURL: URL?
     @Published var insertSourceFileTitles: Bool {
         didSet {
@@ -95,18 +97,7 @@ final class MergeViewModel: ObservableObject {
         self.runner = runner
         self.preferences = preferences
         self.insertSourceFileTitles = preferences.insertSourceFileTitles
-    }
-
-    var resolvedOutputURL: URL? {
-        outputOverrideURL ?? AppRunRequestBuilder.defaultOutputURL(for: inputItems.map(\.url))
-    }
-
-    var resolvedReportURL: URL? {
-        guard let outputURL = resolvedOutputURL else {
-            return nil
-        }
-
-        return AppRunRequestBuilder.defaultReportURL(for: outputURL)
+        refreshResolvedPaths()
     }
 
     var preferredInputDirectory: URL? {
@@ -193,6 +184,7 @@ final class MergeViewModel: ObservableObject {
         }
 
         inputItems.append(contentsOf: filtered)
+        refreshResolvedPaths()
         preferences.setLastInputDirectory(filtered[0].url.deletingLastPathComponent())
 
         if outputOverrideURL == nil, let outputURL = resolvedOutputURL {
@@ -219,6 +211,7 @@ final class MergeViewModel: ObservableObject {
         inputItems.removeAll()
         selectedInputIDs.removeAll()
         outputOverrideURL = nil
+        refreshResolvedPaths()
         phase = .idle
         statusText = ""
         showsProgress = false
@@ -237,6 +230,7 @@ final class MergeViewModel: ObservableObject {
 
     func setOutputURL(_ url: URL?) {
         outputOverrideURL = url
+        refreshResolvedPaths()
 
         if let url {
             preferences.setLastOutputDirectory(url.deletingLastPathComponent())
@@ -245,6 +239,7 @@ final class MergeViewModel: ObservableObject {
 
     func resetToSuggestedOutput() {
         outputOverrideURL = nil
+        refreshResolvedPaths()
     }
 
     func startMerge() {
@@ -346,6 +341,8 @@ final class MergeViewModel: ObservableObject {
     }
 
     private func resetAfterInputMutation() {
+        refreshResolvedPaths()
+
         if inputItems.isEmpty {
             phase = .idle
             statusText = ""
@@ -369,6 +366,12 @@ final class MergeViewModel: ObservableObject {
         progressValue = 0
         reportPreview = ""
         reportActivities = []
+    }
+
+    private func refreshResolvedPaths() {
+        let outputURL = outputOverrideURL ?? AppRunRequestBuilder.defaultOutputURL(for: inputItems.map(\.url))
+        resolvedOutputURL = outputURL
+        resolvedReportURL = outputURL.map(AppRunRequestBuilder.defaultReportURL(for:))
     }
 
     private func handle(_ result: Result<HelperEvent, Error>, for runToken: UUID) {
