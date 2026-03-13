@@ -28,7 +28,6 @@ internal sealed class ManifestLoader
         }
 
         var fullPath = Path.GetFullPath(path);
-        EnsureManifestWithinSizeLimit(fullPath);
 
         return Path.GetExtension(fullPath).ToLowerInvariant() switch
         {
@@ -40,25 +39,13 @@ internal sealed class ManifestLoader
 
     private static ManifestFileModel? DeserializeJson(string fullPath)
     {
-        using var stream = File.OpenRead(fullPath);
+        using var stream = BoundedInputFileReader.OpenRead(fullPath, MaxManifestSizeBytes, "Config file");
         return JsonSerializer.Deserialize<ManifestFileModel>(stream, JsonOptions);
     }
 
     private ManifestFileModel? DeserializeYaml(string fullPath)
     {
-        var content = File.ReadAllText(fullPath);
+        var content = BoundedInputFileReader.ReadAllText(fullPath, MaxManifestSizeBytes, "Config file");
         return _yamlDeserializer.Deserialize<ManifestFileModel>(content);
-    }
-
-    private static void EnsureManifestWithinSizeLimit(string fullPath)
-    {
-        var manifestLength = new FileInfo(fullPath).Length;
-        if (manifestLength <= MaxManifestSizeBytes)
-        {
-            return;
-        }
-
-        throw new InvalidOperationException(
-            $"Config file is too large ({manifestLength} bytes). Maximum supported size is {MaxManifestSizeBytes} bytes.");
     }
 }

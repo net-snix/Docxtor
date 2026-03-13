@@ -166,8 +166,7 @@ internal static class AppRunCommand
     {
         try
         {
-            EnsureRequestWithinSizeLimit(requestPath);
-            await using var stream = File.OpenRead(requestPath);
+            await using var stream = BoundedInputFileReader.OpenRead(requestPath, MaxRequestSizeBytes, "Request file");
             var request = await JsonSerializer.DeserializeAsync<AppRunRequest>(
                 stream,
                 RequestJsonOptions,
@@ -178,18 +177,6 @@ internal static class AppRunCommand
         {
             return (null, ex.Message);
         }
-    }
-
-    private static void EnsureRequestWithinSizeLimit(string requestPath)
-    {
-        var requestLength = new FileInfo(requestPath).Length;
-        if (requestLength <= MaxRequestSizeBytes)
-        {
-            return;
-        }
-
-        throw new InvalidOperationException(
-            $"Request file is too large ({requestLength} bytes). Maximum supported size is {MaxRequestSizeBytes} bytes.");
     }
 
     private static DiagnosticMessage CreateError(string code, string message)
