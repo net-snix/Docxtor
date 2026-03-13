@@ -77,21 +77,7 @@ internal sealed class OpenXmlPreflightInspector(string backendName, string backe
     {
         using var document = WordprocessingDocument.Open(inputPath, false);
         var mainPart = document.MainDocumentPart ?? throw new InvalidDataException("Missing main document part.");
-        var roots = OpenXmlPartHelpers.EnumerateRootElements(mainPart).ToArray();
-        var parts = OpenXmlPartHelpers.EnumerateParts(mainPart).ToArray();
-
-        var partCounts = parts
-            .GroupBy(part => part.GetType().Name, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
-
-        var relationshipCounts = parts
-            .SelectMany(part => part.Parts.Select(child => child.OpenXmlPart.RelationshipType)
-                .Concat(part.ExternalRelationships.Select(child => child.RelationshipType))
-                .Concat(part.HyperlinkRelationships.Select(child => child.RelationshipType)))
-            .GroupBy(type => type, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
-
-        var allElements = roots.SelectMany(OpenXmlPartHelpers.SelfAndDescendants).ToArray();
+        var scan = ScanDocument(mainPart);
 
         return new FeatureInventory
         {
@@ -101,27 +87,87 @@ internal sealed class OpenXmlPreflightInspector(string backendName, string backe
             HasFootnotes = mainPart.FootnotesPart?.Footnotes?.Elements<Footnote>().Any(item => IsRegularNoteId(item.Id?.Value.ToString())) == true,
             HasEndnotes = mainPart.EndnotesPart?.Endnotes?.Elements<Endnote>().Any(item => IsRegularNoteId(item.Id?.Value.ToString())) == true,
             HasComments = mainPart.WordprocessingCommentsPart?.Comments?.Elements<Comment>().Any() == true,
-            HasTrackedChanges = allElements.Any(element => RevisionElementNames.Contains(element.LocalName)),
-            HasCharts = parts.Any(part => part.GetType().Name.Contains("Chart", StringComparison.Ordinal)),
-            HasSmartArt = parts.Any(part => part.GetType().Name.Contains("Diagram", StringComparison.Ordinal)),
-            HasEmbeddedObjects = parts.Any(part => part.GetType().Name.Contains("Embedded", StringComparison.Ordinal)),
-            HasTextBoxes = allElements.Any(element => element is TextBoxContent || element.LocalName == "txbxContent"),
-            HasExternalHyperlinks = parts.Any(part => part.HyperlinkRelationships.Any() ||
-                part.ExternalRelationships.Any(rel => rel.RelationshipType.Contains("hyperlink", StringComparison.OrdinalIgnoreCase))),
-            HasExternalImages = parts.Any(part => part.ExternalRelationships.Any(rel => rel.RelationshipType.Contains("image", StringComparison.OrdinalIgnoreCase))),
-            HasBookmarks = allElements.Any(element => element is BookmarkStart),
-            HasNumbering = mainPart.NumberingDefinitionsPart is not null &&
-                mainPart.Document?.Body?.Descendants<NumberingId>().Any() == true,
+            HasTrackedChanges = scan.HasTrackedChanges,
+            HasCharts = scan.HasCharts,
+            HasSmartArt = scan.HasSmartArt,
+            HasEmbeddedObjects = scan.HasEmbeddedObjects,
+            HasTextBoxes = scan.HasTextBoxes,
+            HasExternalHyperlinks = scan.HasExternalHyperlinks,
+            HasExternalImages = scan.HasExternalImages,
+            HasBookmarks = scan.HasBookmarks,
+            HasNumbering = mainPart.NumberingDefinitionsPart is not null && scan.HasNumbering,
             HasStyles = mainPart.StyleDefinitionsPart is not null,
             HasStylesWithEffects = mainPart.StylesWithEffectsPart is not null,
             HasTheme = mainPart.ThemePart is not null,
-            HasAltChunk = parts.Any(part => part.GetType().Name.Contains("AlternativeFormatImport", StringComparison.Ordinal)) ||
-                allElements.Any(element => element is AltChunk),
-            HasFields = allElements.Any(element => element is FieldCode or SimpleField),
-            HasContentControls = allElements.Any(element => element is SdtElement),
-            PartCounts = partCounts,
-            RelationshipCounts = relationshipCounts,
+            HasAltChunk = scan.HasAltChunk,
+            HasFields = scan.HasFields,
+            HasContentControls = scan.HasContentControls,
+            PartCounts = scan.PartCounts,
+            RelationshipCounts = scan.RelationshipCounts,
         };
+    }
+
+    private static DocumentScanResult ScanDocument(MainDocumentPart mainPart)
+    {
+        var scan = new DocumentScanResult();
+
+        foreach (var part in OpenXmlPartHelpers.EnumerateParts(mainPart))
+        {
+            var partTypeName = part.GetType().Name;
+            IncrementCount(scan.PartCounts, partTypeName);
+
+            scan.HasCharts |= partTypeName.Contains("Chart", StringComparison.Ordinal);
+            scan.HasSmartArt |= partTypeName.Contains("Diagram", StringComparison.Ordinal);
+            scan.HasEmbeddedObjects |= partTypeName.Contains("Embedded", StringComparison.Ordinal);
+            scan.HasAltChunk |= partTypeName.Contains("AlternativeFormatImport", StringComparison.Ordinal);
+
+            foreach (var childPart in part.Parts)
+            {
+                IncrementCount(scan.RelationshipCounts, childPart.OpenXmlPart.RelationshipType);
+            }
+
+            foreach (var externalRelationship in part.ExternalRelationships)
+            {
+                IncrementCount(scan.RelationshipCounts, externalRelationship.RelationshipType);
+                scan.HasExternalHyperlinks |= externalRelationship.RelationshipType.Contains("hyperlink", StringComparison.OrdinalIgnoreCase);
+                scan.HasExternalImages |= externalRelationship.RelationshipType.Contains("image", StringComparison.OrdinalIgnoreCase);
+            }
+
+            foreach (var hyperlinkRelationship in part.HyperlinkRelationships)
+            {
+                IncrementCount(scan.RelationshipCounts, hyperlinkRelationship.RelationshipType);
+                scan.HasExternalHyperlinks = true;
+            }
+
+            if (part.RootElement is null)
+            {
+                continue;
+            }
+
+            foreach (var element in OpenXmlPartHelpers.SelfAndDescendants(part.RootElement))
+            {
+                scan.HasTrackedChanges |= RevisionElementNames.Contains(element.LocalName);
+                scan.HasTextBoxes |= element is TextBoxContent || element.LocalName == "txbxContent";
+                scan.HasBookmarks |= element is BookmarkStart;
+                scan.HasAltChunk |= element is AltChunk;
+                scan.HasFields |= element is FieldCode or SimpleField;
+                scan.HasContentControls |= element is SdtElement;
+
+                if (ReferenceEquals(part, mainPart))
+                {
+                    scan.HasNumbering |= element is NumberingId;
+                }
+            }
+        }
+
+        return scan;
+    }
+
+    private static void IncrementCount(Dictionary<string, int> counts, string key)
+    {
+        counts[key] = counts.TryGetValue(key, out var existingCount)
+            ? existingCount + 1
+            : 1;
     }
 
     private void EvaluatePolicySupport(
@@ -259,5 +305,36 @@ internal sealed class OpenXmlPreflightInspector(string backendName, string backe
     private static bool IsRegularNoteId(string? idValue)
     {
         return int.TryParse(idValue, out var parsed) && parsed > 0;
+    }
+
+    private sealed class DocumentScanResult
+    {
+        public Dictionary<string, int> PartCounts { get; } = new(StringComparer.Ordinal);
+
+        public Dictionary<string, int> RelationshipCounts { get; } = new(StringComparer.Ordinal);
+
+        public bool HasTrackedChanges { get; set; }
+
+        public bool HasCharts { get; set; }
+
+        public bool HasSmartArt { get; set; }
+
+        public bool HasEmbeddedObjects { get; set; }
+
+        public bool HasTextBoxes { get; set; }
+
+        public bool HasExternalHyperlinks { get; set; }
+
+        public bool HasExternalImages { get; set; }
+
+        public bool HasBookmarks { get; set; }
+
+        public bool HasNumbering { get; set; }
+
+        public bool HasAltChunk { get; set; }
+
+        public bool HasFields { get; set; }
+
+        public bool HasContentControls { get; set; }
     }
 }
