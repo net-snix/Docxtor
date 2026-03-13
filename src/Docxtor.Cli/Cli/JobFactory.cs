@@ -18,13 +18,13 @@ internal sealed class JobFactory
             return (null, LogFormat.Text, "At least one input DOCX is required.");
         }
 
-        var boundaryMode = options.BoundaryMode ?? ParseBoundary(manifest?.Merge.Boundary) ?? BoundaryMode.SectionNewPage;
-        var numberingMode = options.NumberingMode ?? ParseNumbering(manifest?.Merge.Numbering) ?? NumberingMode.PreserveSource;
-        var trackedChangesMode = options.TrackedChangesMode ?? ParseTrackedChanges(manifest?.Merge.TrackedChanges) ?? TrackedChangesMode.Fail;
-        var altChunkMode = options.AltChunkMode ?? ParseAltChunk(manifest?.Merge.AltChunk) ?? AltChunkMode.Reject;
-        var themePolicy = options.ThemePolicy ?? ParseThemePolicy(manifest?.Merge.ThemePolicy) ?? ThemePolicy.BaseWins;
-        var externalResourceMode = options.ExternalResourceMode ?? ParseExternalMode(manifest?.Merge.ExternalResources) ?? ExternalResourceMode.PreserveLinks;
-        var logFormat = options.LogFormat ?? ParseLogFormat(manifest?.Report.LogFormat) ?? LogFormat.Text;
+        var boundaryMode = options.BoundaryMode ?? MergeOptionParsers.ParseBoundaryMode(manifest?.Merge.Boundary) ?? BoundaryMode.SectionNewPage;
+        var numberingMode = options.NumberingMode ?? MergeOptionParsers.ParseNumberingMode(manifest?.Merge.Numbering) ?? NumberingMode.PreserveSource;
+        var trackedChangesMode = options.TrackedChangesMode ?? MergeOptionParsers.ParseTrackedChangesMode(manifest?.Merge.TrackedChanges) ?? TrackedChangesMode.Fail;
+        var altChunkMode = options.AltChunkMode ?? MergeOptionParsers.ParseAltChunkMode(manifest?.Merge.AltChunk) ?? AltChunkMode.Reject;
+        var themePolicy = options.ThemePolicy ?? MergeOptionParsers.ParseThemePolicy(manifest?.Merge.ThemePolicy) ?? ThemePolicy.BaseWins;
+        var externalResourceMode = options.ExternalResourceMode ?? MergeOptionParsers.ParseExternalResourceMode(manifest?.Merge.ExternalResources) ?? ExternalResourceMode.PreserveLinks;
+        var logFormat = options.LogFormat ?? MergeOptionParsers.ParseLogFormat(manifest?.Report.LogFormat) ?? LogFormat.Text;
         var preserveSections = options.PreserveSections ?? manifest?.Merge.PreserveSections ?? true;
         var sectionPolicy = preserveSections ? SectionPolicy.PreserveSourceSections : SectionPolicy.UnifyWithBaseHeadersFooters;
         var emitReport = options.EmitReport ?? manifest?.Validation.EmitReport ?? true;
@@ -73,57 +73,4 @@ internal sealed class JobFactory
 
         return (job, logFormat, null);
     }
-
-    private static BoundaryMode? ParseBoundary(string? value) => value switch
-    {
-        "section-new-page" => BoundaryMode.SectionNewPage,
-        "page-break" => BoundaryMode.PageBreak,
-        "continuous-section" => BoundaryMode.ContinuousSection,
-        "none" => BoundaryMode.None,
-        _ => null,
-    };
-
-    private static NumberingMode? ParseNumbering(string? value) => value switch
-    {
-        "preserve-source" => NumberingMode.PreserveSource,
-        "continue-destination" => NumberingMode.ContinueDestination,
-        _ => null,
-    };
-
-    private static TrackedChangesMode? ParseTrackedChanges(string? value) => value switch
-    {
-        "fail" => TrackedChangesMode.Fail,
-        "accept-all" => TrackedChangesMode.AcceptAll,
-        "reject-all" => TrackedChangesMode.RejectAll,
-        _ => null,
-    };
-
-    private static AltChunkMode? ParseAltChunk(string? value) => value switch
-    {
-        "reject" => AltChunkMode.Reject,
-        "resolve" => AltChunkMode.Resolve,
-        _ => null,
-    };
-
-    private static ThemePolicy? ParseThemePolicy(string? value) => value switch
-    {
-        "base-wins" => ThemePolicy.BaseWins,
-        "import-first" => ThemePolicy.ImportFirst,
-        "template-wins" => ThemePolicy.TemplateWins,
-        _ => null,
-    };
-
-    private static ExternalResourceMode? ParseExternalMode(string? value) => value switch
-    {
-        "preserve-links" => ExternalResourceMode.PreserveLinks,
-        "materialize" => ExternalResourceMode.Materialize,
-        _ => null,
-    };
-
-    private static LogFormat? ParseLogFormat(string? value) => value switch
-    {
-        "text" => LogFormat.Text,
-        "json" => LogFormat.Json,
-        _ => null,
-    };
 }

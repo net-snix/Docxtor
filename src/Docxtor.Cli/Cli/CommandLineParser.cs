@@ -85,7 +85,7 @@ internal sealed class CommandLineParser
                         return (null, boundaryError);
                     }
 
-                    if (!TryParseBoundaryMode(boundaryValue, out var boundaryMode))
+                    if (!MergeOptionParsers.TryParseBoundaryMode(boundaryValue, out var boundaryMode))
                     {
                         return (null, $"Unknown boundary mode '{boundaryValue}'.");
                     }
@@ -99,7 +99,7 @@ internal sealed class CommandLineParser
                         return (null, numberingError);
                     }
 
-                    if (!TryParseNumberingMode(numberingValue, out var numberingMode))
+                    if (!MergeOptionParsers.TryParseNumberingMode(numberingValue, out var numberingMode))
                     {
                         return (null, $"Unknown numbering mode '{numberingValue}'.");
                     }
@@ -113,7 +113,7 @@ internal sealed class CommandLineParser
                         return (null, trackedChangesError);
                     }
 
-                    if (!TryParseTrackedChangesMode(trackedChangesValue, out var trackedChangesMode))
+                    if (!MergeOptionParsers.TryParseTrackedChangesMode(trackedChangesValue, out var trackedChangesMode))
                     {
                         return (null, $"Unknown tracked-changes mode '{trackedChangesValue}'.");
                     }
@@ -127,7 +127,7 @@ internal sealed class CommandLineParser
                         return (null, altChunkError);
                     }
 
-                    if (!TryParseAltChunkMode(altChunkValue, out var altChunkMode))
+                    if (!MergeOptionParsers.TryParseAltChunkMode(altChunkValue, out var altChunkMode))
                     {
                         return (null, $"Unknown altchunk mode '{altChunkValue}'.");
                     }
@@ -141,7 +141,7 @@ internal sealed class CommandLineParser
                         return (null, themeError);
                     }
 
-                    if (!TryParseThemePolicy(themeValue, out var themePolicy))
+                    if (!MergeOptionParsers.TryParseThemePolicy(themeValue, out var themePolicy))
                     {
                         return (null, $"Unknown theme policy '{themeValue}'.");
                     }
@@ -155,7 +155,7 @@ internal sealed class CommandLineParser
                         return (null, externalError);
                     }
 
-                    if (!TryParseExternalResourceMode(externalValue, out var externalMode))
+                    if (!MergeOptionParsers.TryParseExternalResourceMode(externalValue, out var externalMode))
                     {
                         return (null, $"Unknown external-resource mode '{externalValue}'.");
                     }
@@ -169,7 +169,7 @@ internal sealed class CommandLineParser
                         return (null, logFormatError);
                     }
 
-                    if (!TryParseLogFormat(logFormatValue, out var logFormat))
+                    if (!MergeOptionParsers.TryParseLogFormat(logFormatValue, out var logFormat))
                     {
                         return (null, $"Unknown log format '{logFormatValue}'.");
                     }
@@ -281,91 +281,4 @@ internal sealed class CommandLineParser
         return value;
     }
 
-    private static bool TryParseBoundaryMode(string? value, out BoundaryMode mode)
-    {
-        mode = value switch
-        {
-            "section-new-page" => BoundaryMode.SectionNewPage,
-            "page-break" => BoundaryMode.PageBreak,
-            "continuous-section" => BoundaryMode.ContinuousSection,
-            "none" => BoundaryMode.None,
-            _ => default,
-        };
-
-        return value is "section-new-page" or "page-break" or "continuous-section" or "none";
-    }
-
-    private static bool TryParseNumberingMode(string? value, out NumberingMode mode)
-    {
-        mode = value switch
-        {
-            "preserve-source" => NumberingMode.PreserveSource,
-            "continue-destination" => NumberingMode.ContinueDestination,
-            _ => default,
-        };
-
-        return value is "preserve-source" or "continue-destination";
-    }
-
-    private static bool TryParseTrackedChangesMode(string? value, out TrackedChangesMode mode)
-    {
-        mode = value switch
-        {
-            "fail" => TrackedChangesMode.Fail,
-            "accept-all" => TrackedChangesMode.AcceptAll,
-            "reject-all" => TrackedChangesMode.RejectAll,
-            _ => default,
-        };
-
-        return value is "fail" or "accept-all" or "reject-all";
-    }
-
-    private static bool TryParseAltChunkMode(string? value, out AltChunkMode mode)
-    {
-        mode = value switch
-        {
-            "reject" => AltChunkMode.Reject,
-            "resolve" => AltChunkMode.Resolve,
-            _ => default,
-        };
-
-        return value is "reject" or "resolve";
-    }
-
-    private static bool TryParseThemePolicy(string? value, out ThemePolicy mode)
-    {
-        mode = value switch
-        {
-            "base-wins" => ThemePolicy.BaseWins,
-            "import-first" => ThemePolicy.ImportFirst,
-            "template-wins" => ThemePolicy.TemplateWins,
-            _ => default,
-        };
-
-        return value is "base-wins" or "import-first" or "template-wins";
-    }
-
-    private static bool TryParseExternalResourceMode(string? value, out ExternalResourceMode mode)
-    {
-        mode = value switch
-        {
-            "preserve-links" => ExternalResourceMode.PreserveLinks,
-            "materialize" => ExternalResourceMode.Materialize,
-            _ => default,
-        };
-
-        return value is "preserve-links" or "materialize";
-    }
-
-    private static bool TryParseLogFormat(string? value, out LogFormat format)
-    {
-        format = value switch
-        {
-            "text" => LogFormat.Text,
-            "json" => LogFormat.Json,
-            _ => default,
-        };
-
-        return value is "text" or "json";
-    }
 }

@@ -1,4 +1,5 @@
 using Docxtor.Cli.Cli;
+using Docxtor.Core.Models;
 
 namespace Docxtor.UnitTests;
 
@@ -122,6 +123,46 @@ public sealed class JobFactoryTests
 
         Assert.Null(job);
         Assert.Equal("Template path must be different from every input DOCX.", error);
+    }
+
+    [Fact]
+    public void Build_applies_manifest_mode_values()
+    {
+        using var sandbox = new TemporaryDirectory();
+        var inputPath = Path.Combine(sandbox.Path, "source.docx");
+
+        var (job, logFormat, error) = new JobFactory().Build(
+            new CommandLineOptions
+            {
+                Inputs = [inputPath],
+            },
+            new ManifestFileModel
+            {
+                Merge = new MergeManifestModel
+                {
+                    Boundary = "continuous-section",
+                    Numbering = "continue-destination",
+                    TrackedChanges = "accept-all",
+                    AltChunk = "resolve",
+                    ThemePolicy = "template-wins",
+                    ExternalResources = "materialize",
+                },
+                Report = new ReportManifestModel
+                {
+                    LogFormat = "json",
+                },
+            },
+            sandbox.Path);
+
+        Assert.Null(error);
+        Assert.NotNull(job);
+        Assert.Equal(BoundaryMode.ContinuousSection, job!.Policy.BoundaryMode);
+        Assert.Equal(NumberingMode.ContinueDestination, job.Policy.NumberingMode);
+        Assert.Equal(TrackedChangesMode.AcceptAll, job.Policy.TrackedChangesMode);
+        Assert.Equal(AltChunkMode.Resolve, job.Policy.AltChunkMode);
+        Assert.Equal(ThemePolicy.TemplateWins, job.Policy.ThemePolicy);
+        Assert.Equal(ExternalResourceMode.Materialize, job.Policy.ExternalResourceMode);
+        Assert.Equal(LogFormat.Json, logFormat);
     }
 
     private sealed class TemporaryDirectory : IDisposable
