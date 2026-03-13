@@ -45,6 +45,7 @@ dotnet run --project /Users/espenmac/Code/Docxtor/src/Docxtor.Cli -- \
 ```
 
 Config manifests larger than 1 MiB are rejected (fail-fast guard against accidental or malicious oversized inputs).
+JSON/YAML manifests with duplicate keys are rejected to avoid ambiguous config overrides.
 
 macOS app:
 

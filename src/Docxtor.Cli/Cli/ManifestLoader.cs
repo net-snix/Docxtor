@@ -40,8 +40,9 @@ internal sealed class ManifestLoader
 
     private static ManifestFileModel? DeserializeJson(string fullPath)
     {
-        using var stream = BoundedInputFileReader.OpenRead(fullPath, MaxManifestSizeBytes, "Config file");
-        return JsonSerializer.Deserialize<ManifestFileModel>(stream, JsonOptions);
+        var json = BoundedInputFileReader.ReadAllBytes(fullPath, MaxManifestSizeBytes, "Config file");
+        EnsureNoDuplicateJsonProperties(json);
+        return JsonSerializer.Deserialize<ManifestFileModel>(json, JsonOptions);
     }
 
     private ManifestFileModel? DeserializeYaml(string fullPath)
@@ -49,5 +50,45 @@ internal sealed class ManifestLoader
         using var stream = BoundedInputFileReader.OpenRead(fullPath, MaxManifestSizeBytes, "Config file");
         using var reader = new StreamReader(stream);
         return (ManifestFileModel?)_yamlDeserializer.Deserialize(new Parser(reader), typeof(ManifestFileModel));
+    }
+
+    private static void EnsureNoDuplicateJsonProperties(byte[] json)
+    {
+        using var document = JsonDocument.Parse(json);
+        EnsureNoDuplicateJsonProperties(document.RootElement, "$");
+    }
+
+    private static void EnsureNoDuplicateJsonProperties(JsonElement element, string path)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+            {
+                var propertyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var property in element.EnumerateObject())
+                {
+                    if (!propertyNames.Add(property.Name))
+                    {
+                        throw new InvalidOperationException(
+                            $"Config file contains duplicate JSON property '{property.Name}' at '{path}'.");
+                    }
+
+                    EnsureNoDuplicateJsonProperties(property.Value, $"{path}.{property.Name}");
+                }
+
+                break;
+            }
+            case JsonValueKind.Array:
+            {
+                var index = 0;
+                foreach (var item in element.EnumerateArray())
+                {
+                    EnsureNoDuplicateJsonProperties(item, $"{path}[{index}]");
+                    index++;
+                }
+
+                break;
+            }
+        }
     }
 }

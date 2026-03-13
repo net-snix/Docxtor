@@ -33,6 +33,26 @@ internal static class BoundedInputFileReader
         return reader.ReadToEnd();
     }
 
+    public static byte[] ReadAllBytes(string path, long maxBytes, string fileLabel)
+    {
+        using var stream = OpenRead(path, maxBytes, fileLabel);
+        var buffer = new byte[stream.Length];
+        var totalRead = 0;
+
+        while (totalRead < buffer.Length)
+        {
+            var bytesRead = stream.Read(buffer, totalRead, buffer.Length - totalRead);
+            if (bytesRead == 0)
+            {
+                break;
+            }
+
+            totalRead += bytesRead;
+        }
+
+        return totalRead == buffer.Length ? buffer : buffer[..totalRead];
+    }
+
     private static void EnsureWithinSizeLimit(long length, long maxBytes, string fileLabel)
     {
         if (length <= maxBytes)
