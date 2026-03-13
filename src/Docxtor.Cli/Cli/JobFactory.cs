@@ -33,6 +33,11 @@ internal sealed class JobFactory
         var reportPath = Path.GetFullPath(options.ReportPath ?? manifest?.Report.Path ?? "merge-report.json", workingDirectory);
         var templatePath = options.TemplatePath ?? manifest?.Template;
         templatePath = string.IsNullOrWhiteSpace(templatePath) ? null : Path.GetFullPath(templatePath, workingDirectory);
+        var pathSafetyError = JobPathSafetyValidator.Validate(inputs, outputPath, reportPath, templatePath);
+        if (pathSafetyError is not null)
+        {
+            return (null, logFormat, pathSafetyError);
+        }
 
         var job = new MergeJob
         {

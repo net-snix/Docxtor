@@ -81,6 +81,7 @@ Current backend rejects during preflight:
 - embedded packages / OLE
 - external-resource materialization
 - continue-destination numbering
+- output/report/template path collisions that could overwrite inputs or each other
 
 ## Layout
 
