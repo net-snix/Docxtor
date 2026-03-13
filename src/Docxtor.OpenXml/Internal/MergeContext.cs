@@ -32,6 +32,9 @@ internal sealed class MergeContext
 
     public Dictionary<string, string> RelationshipIdMap { get; } = new(StringComparer.Ordinal);
 
+    public Dictionary<OpenXmlPartContainer, RelationshipLookup> SourceRelationshipLookups { get; } =
+        new(ReferenceEqualityComparer.Instance);
+
     public Dictionary<string, ImagePart> ImagePartsByHash { get; } = new(StringComparer.Ordinal);
 
     public HashSet<string> BookmarkNames { get; } = new(StringComparer.Ordinal);
@@ -108,5 +111,44 @@ internal sealed class MergeContext
             Message = message,
             InputPath = inputPath,
         });
+    }
+
+    internal sealed class RelationshipLookup
+    {
+        private RelationshipLookup(
+            Dictionary<string, OpenXmlPart> internalPartsById,
+            Dictionary<string, ExternalRelationship> externalRelationshipsById,
+            Dictionary<string, HyperlinkRelationship> hyperlinkRelationshipsById)
+        {
+            InternalPartsById = internalPartsById;
+            ExternalRelationshipsById = externalRelationshipsById;
+            HyperlinkRelationshipsById = hyperlinkRelationshipsById;
+        }
+
+        public Dictionary<string, OpenXmlPart> InternalPartsById { get; }
+
+        public Dictionary<string, ExternalRelationship> ExternalRelationshipsById { get; }
+
+        public Dictionary<string, HyperlinkRelationship> HyperlinkRelationshipsById { get; }
+
+        public static RelationshipLookup Create(OpenXmlPartContainer owner)
+        {
+            var internalPartsById = owner.Parts
+                .Where(item => !string.IsNullOrWhiteSpace(item.RelationshipId))
+                .ToDictionary(item => item.RelationshipId!, item => item.OpenXmlPart, StringComparer.Ordinal);
+            var externalRelationshipsById = owner.ExternalRelationships
+                .Where(item => !string.IsNullOrWhiteSpace(item.Id))
+                .ToDictionary(item => item.Id!, item => item, StringComparer.Ordinal);
+            var hyperlinkRelationshipsById = owner is OpenXmlPart part
+                ? part.HyperlinkRelationships
+                    .Where(item => !string.IsNullOrWhiteSpace(item.Id))
+                    .ToDictionary(item => item.Id!, item => item, StringComparer.Ordinal)
+                : new Dictionary<string, HyperlinkRelationship>(StringComparer.Ordinal);
+
+            return new RelationshipLookup(
+                internalPartsById,
+                externalRelationshipsById,
+                hyperlinkRelationshipsById);
+        }
     }
 }

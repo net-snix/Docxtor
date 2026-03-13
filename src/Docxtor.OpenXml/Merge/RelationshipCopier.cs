@@ -56,8 +56,9 @@ internal sealed class RelationshipCopier
             return existing;
         }
 
-        var internalPart = TryGetPartById(sourceOwner, sourceRelationshipId);
-        if (internalPart is not null)
+        var sourceLookup = GetSourceRelationshipLookup(sourceOwner, context);
+
+        if (sourceLookup.InternalPartsById.TryGetValue(sourceRelationshipId, out var internalPart))
         {
             if (internalPart is ImagePart imagePart && context.Policy.ImageDeduplication)
             {
@@ -87,8 +88,7 @@ internal sealed class RelationshipCopier
             return newRelationshipId;
         }
 
-        var externalRelationship = sourceOwner.ExternalRelationships.FirstOrDefault(item => item.Id == sourceRelationshipId);
-        if (externalRelationship is not null)
+        if (sourceLookup.ExternalRelationshipsById.TryGetValue(sourceRelationshipId, out var externalRelationship))
         {
             var newRelationship = destinationOwner.AddExternalRelationship(
                 externalRelationship.RelationshipType,
@@ -98,34 +98,33 @@ internal sealed class RelationshipCopier
             return newRelationship.Id;
         }
 
-        if (sourceOwner is OpenXmlPart sourcePart && destinationOwner is OpenXmlPart destinationPart)
+        if (destinationOwner is OpenXmlPart destinationPart &&
+            sourceLookup.HyperlinkRelationshipsById.TryGetValue(sourceRelationshipId, out var hyperlinkRelationship))
         {
-            var hyperlinkRelationship = sourcePart.HyperlinkRelationships.FirstOrDefault(item => item.Id == sourceRelationshipId);
-            if (hyperlinkRelationship is not null)
-            {
-                var newRelationship = destinationPart.AddHyperlinkRelationship(
-                    hyperlinkRelationship.Uri,
-                    hyperlinkRelationship.IsExternal);
-                context.RelationshipIdMap[cacheKey] = newRelationship.Id;
-                context.RemapSummary.RelationshipIds++;
-                return newRelationship.Id;
-            }
+            var newRelationship = destinationPart.AddHyperlinkRelationship(
+                hyperlinkRelationship.Uri,
+                hyperlinkRelationship.IsExternal);
+            context.RelationshipIdMap[cacheKey] = newRelationship.Id;
+            context.RemapSummary.RelationshipIds++;
+            return newRelationship.Id;
         }
 
         throw new InvalidOperationException(
             $"Relationship '{sourceRelationshipId}' could not be resolved for '{GetOwnerKey(sourceOwner)}'.");
     }
 
-    private static OpenXmlPart? TryGetPartById(OpenXmlPartContainer owner, string relationshipId)
+    private static MergeContext.RelationshipLookup GetSourceRelationshipLookup(
+        OpenXmlPartContainer sourceOwner,
+        MergeContext context)
     {
-        try
+        if (context.SourceRelationshipLookups.TryGetValue(sourceOwner, out var lookup))
         {
-            return owner.GetPartById(relationshipId);
+            return lookup;
         }
-        catch (ArgumentOutOfRangeException)
-        {
-            return null;
-        }
+
+        lookup = MergeContext.RelationshipLookup.Create(sourceOwner);
+        context.SourceRelationshipLookups[sourceOwner] = lookup;
+        return lookup;
     }
 
     private static string GetRelationshipId(OpenXmlPartContainer owner, OpenXmlPart part)
