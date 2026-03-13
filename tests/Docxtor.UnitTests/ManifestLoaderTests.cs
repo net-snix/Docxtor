@@ -97,6 +97,47 @@ public sealed class ManifestLoaderTests
         Assert.Throws<YamlException>(() => new ManifestLoader().Load(manifestPath));
     }
 
+    [Fact]
+    public void Load_rejects_json_with_duplicate_keys()
+    {
+        using var sandbox = new TemporaryDirectory();
+        var manifestPath = Path.Combine(sandbox.Path, "manifest.json");
+        File.WriteAllText(
+            manifestPath,
+            """
+            {
+              "output": "one.docx",
+              "output": "two.docx",
+              "inputs": ["source.docx"]
+            }
+            """);
+
+        var exception = Assert.Throws<InvalidOperationException>(() => new ManifestLoader().Load(manifestPath));
+        Assert.Contains("duplicate JSON property 'output'", exception.Message);
+    }
+
+    [Fact]
+    public void Load_rejects_json_with_case_variant_duplicate_keys_in_nested_objects()
+    {
+        using var sandbox = new TemporaryDirectory();
+        var manifestPath = Path.Combine(sandbox.Path, "manifest.json");
+        File.WriteAllText(
+            manifestPath,
+            """
+            {
+              "inputs": ["source.docx"],
+              "merge": {
+                "image_dedup": true,
+                "Image_Dedup": false
+              }
+            }
+            """);
+
+        var exception = Assert.Throws<InvalidOperationException>(() => new ManifestLoader().Load(manifestPath));
+        Assert.Contains("duplicate JSON property 'Image_Dedup'", exception.Message);
+        Assert.Contains("$.merge", exception.Message);
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public TemporaryDirectory()
