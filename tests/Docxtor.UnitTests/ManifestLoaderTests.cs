@@ -1,3 +1,4 @@
+using System.Text;
 using Docxtor.Cli.Cli;
 using YamlDotNet.Core;
 
@@ -39,6 +40,23 @@ public sealed class ManifestLoaderTests
               - two.docx
             output: out.docx
             """);
+
+        var manifest = new ManifestLoader().Load(manifestPath);
+
+        Assert.NotNull(manifest);
+        Assert.Equal(["one.docx", "two.docx"], manifest!.Inputs);
+        Assert.Equal("out.docx", manifest.Output);
+    }
+
+    [Fact]
+    public void Load_parses_yaml_manifest_with_utf8_bom_and_crlf()
+    {
+        using var sandbox = new TemporaryDirectory();
+        var manifestPath = Path.Combine(sandbox.Path, "manifest.yaml");
+        File.WriteAllText(
+            manifestPath,
+            "inputs:\r\n  - one.docx\r\n  - two.docx\r\noutput: out.docx\r\n",
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
 
         var manifest = new ManifestLoader().Load(manifestPath);
 

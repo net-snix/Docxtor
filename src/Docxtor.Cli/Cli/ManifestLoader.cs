@@ -1,4 +1,5 @@
 using System.Text.Json;
+using YamlDotNet.Core;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -45,7 +46,8 @@ internal sealed class ManifestLoader
 
     private ManifestFileModel? DeserializeYaml(string fullPath)
     {
-        var content = BoundedInputFileReader.ReadAllText(fullPath, MaxManifestSizeBytes, "Config file");
-        return _yamlDeserializer.Deserialize<ManifestFileModel>(content);
+        using var stream = BoundedInputFileReader.OpenRead(fullPath, MaxManifestSizeBytes, "Config file");
+        using var reader = new StreamReader(stream);
+        return (ManifestFileModel?)_yamlDeserializer.Deserialize(new Parser(reader), typeof(ManifestFileModel));
     }
 }
