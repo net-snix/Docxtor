@@ -1,3 +1,4 @@
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Docxtor.Core.Models;
@@ -246,6 +247,31 @@ public sealed class OpenXmlMergeBackendTests
         Assert.Contains(footers, text => text.Contains("Footer two", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task MergeAsync_preserves_many_hyperlink_relationships_without_lookup_failures()
+    {
+        using var workspace = new TemporaryTestDirectory();
+        var firstInput = CreateHyperlinkHeavyDocument(
+            System.IO.Path.Combine(workspace.Path, "hyperlinks-one.docx"),
+            "alpha",
+            64);
+        var secondInput = CreateHyperlinkHeavyDocument(
+            System.IO.Path.Combine(workspace.Path, "hyperlinks-two.docx"),
+            "beta",
+            64);
+        var outputPath = System.IO.Path.Combine(workspace.Path, "merged-hyperlinks.docx");
+
+        var result = await CreateMerger().MergeAsync(CreateJob(outputPath, firstInput, secondInput));
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Report.Errors.Select(error => error.Message)));
+        using var merged = WordprocessingDocument.Open(outputPath, false);
+        var bodyText = merged.MainDocumentPart!.Document!.Body!.InnerText;
+
+        Assert.Equal(128, merged.MainDocumentPart.HyperlinkRelationships.Count());
+        Assert.Contains("alpha link 0", bodyText);
+        Assert.Contains("beta link 63", bodyText);
+    }
+
     private static DocxtorMerger CreateMerger()
     {
         return new DocxtorMerger([new OpenXmlMergeBackend()]);
@@ -273,5 +299,30 @@ public sealed class OpenXmlMergeBackendTests
                 RunVisualRegression = false,
             },
         };
+    }
+
+    private static string CreateHyperlinkHeavyDocument(string path, string prefix, int hyperlinkCount)
+    {
+        using var document = WordprocessingDocument.Create(path, WordprocessingDocumentType.Document);
+        var mainPart = document.AddMainDocumentPart();
+        var body = new Body();
+        mainPart.Document = new Document(body);
+
+        for (var index = 0; index < hyperlinkCount; index++)
+        {
+            var relationship = mainPart.AddHyperlinkRelationship(
+                new Uri($"https://example.com/{prefix}/{index}"),
+                true);
+            body.Append(
+                new Paragraph(
+                    new Hyperlink(new Run(new Text($"{prefix} link {index}")))
+                    {
+                        Id = relationship.Id,
+                    }));
+        }
+
+        body.Append(new SectionProperties());
+        mainPart.Document.Save();
+        return path;
     }
 }
