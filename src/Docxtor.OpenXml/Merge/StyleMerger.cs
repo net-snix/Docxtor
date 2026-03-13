@@ -25,6 +25,8 @@ internal sealed class StyleMerger
         var destinationById = destinationStyles.Elements<Style>()
             .Where(style => !string.IsNullOrWhiteSpace(style.StyleId))
             .ToDictionary(style => style.StyleId!.Value!, style => style, StringComparer.Ordinal);
+        var reservedStyleIds = destinationById.Keys.ToHashSet(StringComparer.Ordinal);
+        var normalizedStyleXml = new Dictionary<Style, string>(ReferenceEqualityComparer.Instance);
 
         var directStyleIds = CollectDirectStyleIds(contentRoots);
         var usedStyleIds = ExpandUsedStyles(sourceStyles, directStyleIds);
@@ -43,14 +45,16 @@ internal sealed class StyleMerger
 
             if (destinationById.TryGetValue(sourceStyleId, out var destinationStyle))
             {
-                styleIdMap[sourceStyleId] = AreEquivalent(sourceStyle, destinationStyle)
+                styleIdMap[sourceStyleId] = AreEquivalent(sourceStyle, destinationStyle, normalizedStyleXml)
                     ? sourceStyleId
-                    : GenerateUniqueStyleId(sourceStyleId, destinationById.Keys.Concat(styleIdMap.Values));
+                    : GenerateUniqueStyleId(sourceStyleId, reservedStyleIds);
             }
             else
             {
                 styleIdMap[sourceStyleId] = sourceStyleId;
             }
+
+            reservedStyleIds.Add(styleIdMap[sourceStyleId]);
         }
 
         foreach (var sourceStyleId in usedStyleIds)
@@ -62,7 +66,7 @@ internal sealed class StyleMerger
 
             var destinationStyleId = styleIdMap[sourceStyleId];
             if (destinationById.TryGetValue(destinationStyleId, out var existingStyle) &&
-                AreEquivalent(sourceStyle, existingStyle))
+                AreEquivalent(sourceStyle, existingStyle, normalizedStyleXml))
             {
                 continue;
             }
@@ -76,7 +80,7 @@ internal sealed class StyleMerger
         }
 
         RewriteContentStyleReferences(contentRoots, styleIdMap);
-        MergeStylesWithEffects(sourceMainPart, usedStyleIds, styleIdMap, context);
+        MergeStylesWithEffects(sourceMainPart, usedStyleIds, styleIdMap, context, normalizedStyleXml);
     }
 
     private static HashSet<string> CollectDirectStyleIds(IEnumerable<OpenXmlElement> roots)
@@ -206,24 +210,33 @@ internal sealed class StyleMerger
         }
     }
 
-    private static bool AreEquivalent(Style sourceStyle, Style destinationStyle)
+    private static bool AreEquivalent(
+        Style sourceStyle,
+        Style destinationStyle,
+        Dictionary<Style, string> normalizedStyleXml)
     {
-        return NormalizeStyleXml(sourceStyle) == NormalizeStyleXml(destinationStyle);
+        return NormalizeStyleXml(sourceStyle, normalizedStyleXml) == NormalizeStyleXml(destinationStyle, normalizedStyleXml);
     }
 
-    private static string NormalizeStyleXml(Style style)
+    private static string NormalizeStyleXml(Style style, Dictionary<Style, string> normalizedStyleXml)
     {
+        if (normalizedStyleXml.TryGetValue(style, out var existing))
+        {
+            return existing;
+        }
+
         var clone = (Style)style.CloneNode(true);
         clone.StyleId = "__normalized-style__";
-        return clone.OuterXml;
+        var normalizedXml = clone.OuterXml;
+        normalizedStyleXml[style] = normalizedXml;
+        return normalizedXml;
     }
 
-    private static string GenerateUniqueStyleId(string baseId, IEnumerable<string> existingIds)
+    private static string GenerateUniqueStyleId(string baseId, ISet<string> existingIds)
     {
-        var existing = existingIds.ToHashSet(StringComparer.Ordinal);
         var suffix = 1;
         var candidate = $"{baseId}_imported";
-        while (existing.Contains(candidate))
+        while (existingIds.Contains(candidate))
         {
             candidate = $"{baseId}_imported{suffix++}";
         }
@@ -235,7 +248,8 @@ internal sealed class StyleMerger
         MainDocumentPart sourceMainPart,
         IReadOnlyCollection<string> usedStyleIds,
         IReadOnlyDictionary<string, string> styleIdMap,
-        MergeContext context)
+        MergeContext context,
+        Dictionary<Style, string> normalizedStyleXml)
     {
         if (sourceMainPart.StylesWithEffectsPart?.Styles is null)
         {
@@ -260,7 +274,7 @@ internal sealed class StyleMerger
             }
 
             if (destinationById.TryGetValue(destinationStyleId, out var existingStyle) &&
-                AreEquivalent(sourceStyle, existingStyle))
+                AreEquivalent(sourceStyle, existingStyle, normalizedStyleXml))
             {
                 continue;
             }

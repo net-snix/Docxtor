@@ -127,6 +127,47 @@ public sealed class OpenXmlMergeBackendTests
     }
 
     [Fact]
+    public async Task MergeAsync_renames_conflicting_styles_and_rewrites_paragraph_references()
+    {
+        using var workspace = new TemporaryTestDirectory();
+        var firstInput = DocxFixtureFactory.CreateStyledDocument(
+            System.IO.Path.Combine(workspace.Path, "styles-one.docx"),
+            "Alpha styled paragraph",
+            "SharedStyle",
+            "Shared Style Alpha");
+        var secondInput = DocxFixtureFactory.CreateStyledDocument(
+            System.IO.Path.Combine(workspace.Path, "styles-two.docx"),
+            "Beta styled paragraph",
+            "SharedStyle",
+            "Shared Style Beta");
+        var outputPath = System.IO.Path.Combine(workspace.Path, "merged-styles.docx");
+
+        var result = await CreateMerger().MergeAsync(CreateJob(outputPath, firstInput, secondInput));
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Report.Errors.Select(error => error.Message)));
+        using var merged = WordprocessingDocument.Open(outputPath, false);
+        var styles = merged.MainDocumentPart!.StyleDefinitionsPart!.Styles!
+            .Elements<Style>()
+            .Where(style => style.StyleId?.Value is "SharedStyle" or "SharedStyle_imported")
+            .ToDictionary(style => style.StyleId!.Value!, style => style, StringComparer.Ordinal);
+        var styledParagraphs = merged.MainDocumentPart.Document!.Body!
+            .Elements<Paragraph>()
+            .Where(paragraph => paragraph.InnerText is "Alpha styled paragraph" or "Beta styled paragraph")
+            .Select(paragraph => new
+            {
+                paragraph.InnerText,
+                StyleId = paragraph.ParagraphProperties?.ParagraphStyleId?.Val?.Value,
+            })
+            .ToArray();
+
+        Assert.Equal(["SharedStyle", "SharedStyle_imported"], styles.Keys.OrderBy(key => key).ToArray());
+        Assert.Equal("Shared Style Alpha", styles["SharedStyle"].StyleName?.Val?.Value);
+        Assert.Equal("Shared Style Beta", styles["SharedStyle_imported"].StyleName?.Val?.Value);
+        Assert.Contains(styledParagraphs, paragraph => paragraph.InnerText == "Alpha styled paragraph" && paragraph.StyleId == "SharedStyle");
+        Assert.Contains(styledParagraphs, paragraph => paragraph.InnerText == "Beta styled paragraph" && paragraph.StyleId == "SharedStyle_imported");
+    }
+
+    [Fact]
     public async Task MergeAsync_inserts_source_file_titles_before_each_segment_when_enabled()
     {
         using var workspace = new TemporaryTestDirectory();
