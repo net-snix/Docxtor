@@ -64,18 +64,18 @@ internal static class JobPathSafetyValidator
     }
 
     private static string Normalize(string path)
-        => Path.TrimEndingDirectorySeparator(ResolvePathAlias(Path.GetFullPath(path)));
+        => ResolvePathAlias(Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)));
 
     private static string ResolvePathAlias(string fullPath)
     {
         if (File.Exists(fullPath))
         {
-            return ResolveExistingPath(new FileInfo(fullPath));
+            return ResolveExistingPathAlias(new FileInfo(fullPath));
         }
 
         if (Directory.Exists(fullPath))
         {
-            return ResolveExistingPath(new DirectoryInfo(fullPath));
+            return ResolveExistingPathAlias(new DirectoryInfo(fullPath));
         }
 
         var parentDirectory = Path.GetDirectoryName(fullPath);
@@ -85,41 +85,34 @@ internal static class JobPathSafetyValidator
         }
 
         return Path.Combine(
-            ResolveDirectoryAlias(parentDirectory),
+            ResolvePathAlias(Path.TrimEndingDirectorySeparator(parentDirectory)),
             Path.GetFileName(fullPath));
     }
 
-    private static string ResolveDirectoryAlias(string directoryPath)
+    private static string ResolveExistingPathAlias(FileSystemInfo pathInfo)
     {
-        var fullDirectoryPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directoryPath));
-        if (Directory.Exists(fullDirectoryPath))
-        {
-            return ResolveExistingPath(new DirectoryInfo(fullDirectoryPath));
-        }
+        var fullPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(pathInfo.FullName));
 
-        var parentDirectory = Path.GetDirectoryName(fullDirectoryPath);
-        if (string.IsNullOrWhiteSpace(parentDirectory))
-        {
-            return fullDirectoryPath;
-        }
-
-        return Path.Combine(
-            ResolveDirectoryAlias(parentDirectory),
-            Path.GetFileName(fullDirectoryPath));
-    }
-
-    private static string ResolveExistingPath(FileSystemInfo pathInfo)
-    {
         try
         {
             var resolvedPath = pathInfo.ResolveLinkTarget(returnFinalTarget: true)?.FullName;
-            return string.IsNullOrWhiteSpace(resolvedPath)
-                ? Path.GetFullPath(pathInfo.FullName)
-                : Path.GetFullPath(resolvedPath);
+            if (!string.IsNullOrWhiteSpace(resolvedPath))
+            {
+                return ResolvePathAlias(Path.TrimEndingDirectorySeparator(Path.GetFullPath(resolvedPath)));
+            }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return Path.GetFullPath(pathInfo.FullName);
         }
+
+        var parentDirectory = Path.GetDirectoryName(fullPath);
+        if (string.IsNullOrWhiteSpace(parentDirectory))
+        {
+            return fullPath;
+        }
+
+        return Path.Combine(
+            ResolvePathAlias(Path.TrimEndingDirectorySeparator(parentDirectory)),
+            Path.GetFileName(fullPath));
     }
 }
