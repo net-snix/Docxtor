@@ -258,6 +258,26 @@ final class MergeViewModelTests: XCTestCase {
         XCTAssertNil(viewModel.resolvedReportURL)
     }
 
+    func testDeckRowsStayInSyncAcrossInputMutations() {
+        let viewModel = MergeViewModel(runner: TestMergeRunner(), preferences: TestPreferences())
+        let one = URL(fileURLWithPath: "/tmp/docs/one.docx")
+        let two = URL(fileURLWithPath: "/tmp/docs/two.docx")
+
+        viewModel.addInputURLs([one, two])
+        XCTAssertEqual(viewModel.deckRows.map(\.item.url), [one, two])
+        XCTAssertEqual(viewModel.deckRows.map(\.position), [1, 2])
+
+        viewModel.selectInput(id: viewModel.inputItems[0].id)
+        viewModel.moveSelectionDown()
+
+        XCTAssertEqual(viewModel.deckRows.map(\.item.url), [two, one])
+        XCTAssertEqual(viewModel.deckRows.map(\.position), [1, 2])
+
+        viewModel.removeInput(id: viewModel.inputItems[0].id)
+        XCTAssertEqual(viewModel.deckRows.map(\.item.url), [one])
+        XCTAssertEqual(viewModel.deckRows.map(\.showsDivider), [false])
+    }
+
     func testClearInputsResetsToIdleWithoutPromptCopy() {
         let runner = TestMergeRunner()
         let preferences = TestPreferences()
