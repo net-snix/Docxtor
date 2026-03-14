@@ -126,6 +126,39 @@ public sealed class JobFactoryTests
     }
 
     [Fact]
+    public void Build_rejects_output_path_inside_symlinked_directory_that_matches_input()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var sandbox = new TemporaryDirectory();
+        var realDirectory = Path.Combine(sandbox.Path, "real");
+        var aliasDirectory = Path.Combine(sandbox.Path, "alias");
+        Directory.CreateDirectory(realDirectory);
+        Directory.CreateSymbolicLink(aliasDirectory, realDirectory);
+
+        var inputPath = Path.Combine(realDirectory, "source.docx");
+        var outputAliasPath = Path.Combine(aliasDirectory, "source.docx");
+        File.WriteAllText(inputPath, "input");
+
+        var (job, _, error) = new JobFactory().Build(
+            new CommandLineOptions
+            {
+                Inputs = [inputPath],
+                OutputPath = outputAliasPath,
+            },
+            manifest: null,
+            sandbox.Path);
+
+        Assert.Null(job);
+        Assert.Equal(
+            $"Output path '{outputAliasPath}' must be different from input '{inputPath}'.",
+            error);
+    }
+
+    [Fact]
     public void Build_applies_manifest_mode_values()
     {
         using var sandbox = new TemporaryDirectory();
