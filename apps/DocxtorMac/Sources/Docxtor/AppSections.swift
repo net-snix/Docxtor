@@ -216,6 +216,26 @@ struct WorkspaceSurfaceView: View {
     }
 }
 
+struct DeckRowEntry: Identifiable, Equatable {
+    let id: InputDocument.ID
+    let position: Int
+    let item: InputDocument
+    let showsDivider: Bool
+
+    static func makeEntries(for inputItems: [InputDocument]) -> [DeckRowEntry] {
+        let lastIndex = inputItems.count - 1
+
+        return inputItems.enumerated().map { index, item in
+            DeckRowEntry(
+                id: item.id,
+                position: index + 1,
+                item: item,
+                showsDivider: index < lastIndex
+            )
+        }
+    }
+}
+
 private struct DeckAreaView: View, @MainActor Equatable {
     let inputItems: [InputDocument]
     let selectedIDs: Set<InputDocument.ID>
@@ -245,6 +265,8 @@ private struct DeckAreaView: View, @MainActor Equatable {
     }
 
     var body: some View {
+        let rows = DeckRowEntry.makeEntries(for: inputItems)
+
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -301,15 +323,14 @@ private struct DeckAreaView: View, @MainActor Equatable {
                     } else {
                         ScrollView {
                             LazyVStack(spacing: 0) {
-                                ForEach(inputItems.indices, id: \.self) { index in
-                                    let item = inputItems[index]
+                                ForEach(rows) { row in
                                     DeckRow(
-                                        index: index + 1,
-                                        item: item,
-                                        isSelected: selectedIDs.contains(item.id),
-                                        showsDivider: index < inputItems.count - 1,
-                                        onToggleSelection: { onToggleSelection(item.id) },
-                                        onRemove: { onRemove(item.id) }
+                                        index: row.position,
+                                        item: row.item,
+                                        isSelected: selectedIDs.contains(row.id),
+                                        showsDivider: row.showsDivider,
+                                        onToggleSelection: { onToggleSelection(row.id) },
+                                        onRemove: { onRemove(row.id) }
                                     )
                                 }
                             }
