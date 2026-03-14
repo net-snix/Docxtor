@@ -36,7 +36,8 @@ struct AppView: View {
 
                         WorkspaceSurfaceView(
                             availableSize: size,
-                            inputItems: viewModel.inputItems,
+                            inputCount: viewModel.inputItems.count,
+                            deckRows: viewModel.deckRows,
                             selectedIDs: viewModel.selectedInputIDs,
                             isDropTargeted: isDropTargeted,
                             insertSourceFileTitles: viewModel.insertSourceFileTitles,

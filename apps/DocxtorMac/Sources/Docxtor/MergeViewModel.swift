@@ -68,6 +68,7 @@ final class MergeViewModel: ObservableObject {
     }
 
     @Published private(set) var inputItems: [InputDocument] = []
+    private(set) var deckRows: [DeckRowEntry] = []
     @Published var selectedInputIDs: Set<InputDocument.ID> = []
     @Published private(set) var phase: Phase = .idle
     @Published private(set) var statusText = ""
@@ -183,7 +184,7 @@ final class MergeViewModel: ObservableObject {
             return
         }
 
-        inputItems.append(contentsOf: filtered)
+        setInputItems(inputItems + filtered)
         refreshResolvedPaths()
         preferences.setLastInputDirectory(filtered[0].url.deletingLastPathComponent())
 
@@ -196,19 +197,19 @@ final class MergeViewModel: ObservableObject {
     }
 
     func removeSelectedInputs() {
-        inputItems.removeAll { selectedInputIDs.contains($0.id) }
+        setInputItems(inputItems.filter { !selectedInputIDs.contains($0.id) })
         selectedInputIDs.removeAll()
         resetAfterInputMutation()
     }
 
     func removeInput(id: InputDocument.ID) {
-        inputItems.removeAll { $0.id == id }
+        setInputItems(inputItems.filter { $0.id != id })
         selectedInputIDs.remove(id)
         resetAfterInputMutation()
     }
 
     func clearInputs() {
-        inputItems.removeAll()
+        setInputItems([])
         selectedInputIDs.removeAll()
         outputOverrideURL = nil
         refreshResolvedPaths()
@@ -336,8 +337,13 @@ final class MergeViewModel: ObservableObject {
             updated.swapAt(index, destination)
         }
 
-        inputItems = updated
+        setInputItems(updated)
         resetOutcomeIfNeeded()
+    }
+
+    private func setInputItems(_ items: [InputDocument]) {
+        inputItems = items
+        deckRows = DeckRowEntry.makeEntries(for: items)
     }
 
     private func resetAfterInputMutation() {

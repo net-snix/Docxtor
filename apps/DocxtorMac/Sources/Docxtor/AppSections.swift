@@ -101,7 +101,8 @@ struct HeaderBarView: View {
 
 struct WorkspaceSurfaceView: View {
     let availableSize: CGSize
-    let inputItems: [InputDocument]
+    let inputCount: Int
+    let deckRows: [DeckRowEntry]
     let selectedIDs: Set<InputDocument.ID>
     let isDropTargeted: Bool
     let insertSourceFileTitles: Bool
@@ -156,7 +157,8 @@ struct WorkspaceSurfaceView: View {
 
     private var deckArea: some View {
         DeckAreaView(
-            inputItems: inputItems,
+            inputCount: inputCount,
+            rows: deckRows,
             selectedIDs: selectedIDs,
             isDropTargeted: isDropTargeted,
             canRemoveSelected: canRemoveSelected,
@@ -237,7 +239,8 @@ struct DeckRowEntry: Identifiable, Equatable {
 }
 
 private struct DeckAreaView: View, @MainActor Equatable {
-    let inputItems: [InputDocument]
+    let inputCount: Int
+    let rows: [DeckRowEntry]
     let selectedIDs: Set<InputDocument.ID>
     let isDropTargeted: Bool
     let canRemoveSelected: Bool
@@ -255,7 +258,8 @@ private struct DeckAreaView: View, @MainActor Equatable {
     let onDropTargetChange: (Bool) -> Void
 
     static func == (lhs: DeckAreaView, rhs: DeckAreaView) -> Bool {
-        lhs.inputItems == rhs.inputItems &&
+        lhs.inputCount == rhs.inputCount &&
+        lhs.rows == rhs.rows &&
         lhs.selectedIDs == rhs.selectedIDs &&
         lhs.isDropTargeted == rhs.isDropTargeted &&
         lhs.canRemoveSelected == rhs.canRemoveSelected &&
@@ -265,8 +269,6 @@ private struct DeckAreaView: View, @MainActor Equatable {
     }
 
     var body: some View {
-        let rows = DeckRowEntry.makeEntries(for: inputItems)
-
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -274,14 +276,14 @@ private struct DeckAreaView: View, @MainActor Equatable {
                         .font(StudioType.section(30))
                         .foregroundStyle(StudioPalette.ink)
 
-                    Text(inputItems.isEmpty ? "Drop files or click anywhere." : "Select rows. Move them to set merge order.")
+                    Text(rows.isEmpty ? "Drop files or click anywhere." : "Select rows. Move them to set merge order.")
                         .font(StudioType.copy(13))
                         .foregroundStyle(StudioPalette.slate)
                 }
 
                 Spacer()
 
-                Text("\(inputItems.count)")
+                Text("\(inputCount)")
                     .font(StudioType.strong(15))
                     .foregroundStyle(StudioPalette.ink)
                     .padding(.horizontal, 12)
@@ -294,7 +296,7 @@ private struct DeckAreaView: View, @MainActor Equatable {
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(inputItems.isEmpty ? 0.28 : 0.18),
+                                Color.white.opacity(rows.isEmpty ? 0.28 : 0.18),
                                 Color.white.opacity(0.08)
                             ],
                             startPoint: .topLeading,
@@ -317,7 +319,7 @@ private struct DeckAreaView: View, @MainActor Equatable {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Group {
-                    if inputItems.isEmpty {
+                    if rows.isEmpty {
                         EmptyDeckView(isDropTargeted: isDropTargeted)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
@@ -344,7 +346,7 @@ private struct DeckAreaView: View, @MainActor Equatable {
             .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
             .onTapGesture {
-                guard inputItems.isEmpty else {
+                guard rows.isEmpty else {
                     return
                 }
 
@@ -369,7 +371,7 @@ private struct DeckAreaView: View, @MainActor Equatable {
                     "Clear",
                     systemImage: "xmark",
                     tone: .quiet,
-                    isDisabled: inputItems.isEmpty,
+                    isDisabled: rows.isEmpty,
                     action: onClear
                 )
 
