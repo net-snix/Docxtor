@@ -4,6 +4,8 @@ namespace Docxtor.Cli.Cli;
 
 internal sealed class CommandLineParser
 {
+    private delegate bool TryParseOption<TValue>(string? value, out TValue parsedValue);
+
     public (CommandLineOptions? Options, string? Error) Parse(IReadOnlyList<string> args)
     {
         var options = new CommandLineOptions();
@@ -79,99 +81,106 @@ internal sealed class CommandLineParser
 
                     break;
                 case "--boundary":
-                    var boundaryValue = ReadRequiredValue(args, ref index, argument, out var boundaryError);
-                    if (boundaryError is not null)
+                    if (!TryReadParsedOption<BoundaryMode>(
+                        args,
+                        ref index,
+                        argument,
+                        "boundary mode",
+                        MergeOptionParsers.TryParseBoundaryMode,
+                        out var boundaryMode,
+                        out var boundaryError))
                     {
                         return (null, boundaryError);
-                    }
-
-                    if (!MergeOptionParsers.TryParseBoundaryMode(boundaryValue, out var boundaryMode))
-                    {
-                        return (null, $"Unknown boundary mode '{boundaryValue}'.");
                     }
 
                     options = options with { BoundaryMode = boundaryMode };
                     break;
                 case "--numbering":
-                    var numberingValue = ReadRequiredValue(args, ref index, argument, out var numberingError);
-                    if (numberingError is not null)
+                    if (!TryReadParsedOption<NumberingMode>(
+                        args,
+                        ref index,
+                        argument,
+                        "numbering mode",
+                        MergeOptionParsers.TryParseNumberingMode,
+                        out var numberingMode,
+                        out var numberingError))
                     {
                         return (null, numberingError);
-                    }
-
-                    if (!MergeOptionParsers.TryParseNumberingMode(numberingValue, out var numberingMode))
-                    {
-                        return (null, $"Unknown numbering mode '{numberingValue}'.");
                     }
 
                     options = options with { NumberingMode = numberingMode };
                     break;
                 case "--tracked-changes":
-                    var trackedChangesValue = ReadRequiredValue(args, ref index, argument, out var trackedChangesError);
-                    if (trackedChangesError is not null)
+                    if (!TryReadParsedOption<TrackedChangesMode>(
+                        args,
+                        ref index,
+                        argument,
+                        "tracked-changes mode",
+                        MergeOptionParsers.TryParseTrackedChangesMode,
+                        out var trackedChangesMode,
+                        out var trackedChangesError))
                     {
                         return (null, trackedChangesError);
-                    }
-
-                    if (!MergeOptionParsers.TryParseTrackedChangesMode(trackedChangesValue, out var trackedChangesMode))
-                    {
-                        return (null, $"Unknown tracked-changes mode '{trackedChangesValue}'.");
                     }
 
                     options = options with { TrackedChangesMode = trackedChangesMode };
                     break;
                 case "--altchunk":
-                    var altChunkValue = ReadRequiredValue(args, ref index, argument, out var altChunkError);
-                    if (altChunkError is not null)
+                    if (!TryReadParsedOption<AltChunkMode>(
+                        args,
+                        ref index,
+                        argument,
+                        "altchunk mode",
+                        MergeOptionParsers.TryParseAltChunkMode,
+                        out var altChunkMode,
+                        out var altChunkError))
                     {
                         return (null, altChunkError);
-                    }
-
-                    if (!MergeOptionParsers.TryParseAltChunkMode(altChunkValue, out var altChunkMode))
-                    {
-                        return (null, $"Unknown altchunk mode '{altChunkValue}'.");
                     }
 
                     options = options with { AltChunkMode = altChunkMode };
                     break;
                 case "--theme-policy":
-                    var themeValue = ReadRequiredValue(args, ref index, argument, out var themeError);
-                    if (themeError is not null)
+                    if (!TryReadParsedOption<ThemePolicy>(
+                        args,
+                        ref index,
+                        argument,
+                        "theme policy",
+                        MergeOptionParsers.TryParseThemePolicy,
+                        out var themePolicy,
+                        out var themeError))
                     {
                         return (null, themeError);
-                    }
-
-                    if (!MergeOptionParsers.TryParseThemePolicy(themeValue, out var themePolicy))
-                    {
-                        return (null, $"Unknown theme policy '{themeValue}'.");
                     }
 
                     options = options with { ThemePolicy = themePolicy };
                     break;
                 case "--external-resources":
-                    var externalValue = ReadRequiredValue(args, ref index, argument, out var externalError);
-                    if (externalError is not null)
+                    if (!TryReadParsedOption<ExternalResourceMode>(
+                        args,
+                        ref index,
+                        argument,
+                        "external-resource mode",
+                        MergeOptionParsers.TryParseExternalResourceMode,
+                        out var externalMode,
+                        out var externalError))
                     {
                         return (null, externalError);
-                    }
-
-                    if (!MergeOptionParsers.TryParseExternalResourceMode(externalValue, out var externalMode))
-                    {
-                        return (null, $"Unknown external-resource mode '{externalValue}'.");
                     }
 
                     options = options with { ExternalResourceMode = externalMode };
                     break;
                 case "--log-format":
-                    var logFormatValue = ReadRequiredValue(args, ref index, argument, out var logFormatError);
-                    if (logFormatError is not null)
+                    if (!TryReadParsedOption<LogFormat>(
+                        args,
+                        ref index,
+                        argument,
+                        "log format",
+                        MergeOptionParsers.TryParseLogFormat,
+                        out var logFormat,
+                        out var logFormatError))
                     {
                         return (null, logFormatError);
-                    }
-
-                    if (!MergeOptionParsers.TryParseLogFormat(logFormatValue, out var logFormat))
-                    {
-                        return (null, $"Unknown log format '{logFormatValue}'.");
                     }
 
                     options = options with { LogFormat = logFormat };
@@ -281,4 +290,28 @@ internal sealed class CommandLineParser
         return value;
     }
 
+    private static bool TryReadParsedOption<TValue>(
+        IReadOnlyList<string> args,
+        ref int index,
+        string optionName,
+        string optionLabel,
+        TryParseOption<TValue> tryParse,
+        out TValue value,
+        out string? error)
+    {
+        var rawValue = ReadRequiredValue(args, ref index, optionName, out error);
+        if (error is not null)
+        {
+            value = default!;
+            return false;
+        }
+
+        if (!tryParse(rawValue, out value))
+        {
+            error = $"Unknown {optionLabel} '{rawValue}'.";
+            return false;
+        }
+
+        return true;
+    }
 }
