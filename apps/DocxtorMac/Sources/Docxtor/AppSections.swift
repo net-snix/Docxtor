@@ -201,6 +201,7 @@ struct WorkspaceSurfaceView: View {
             onReveal: onReveal,
             onShowReport: onShowReport
         )
+        .equatable()
     }
 
     private var isCompactWidth: Bool {
@@ -401,7 +402,7 @@ private struct DeckAreaView: View, @MainActor Equatable {
     }
 }
 
-private struct SidebarView: View {
+private struct SidebarView: View, @MainActor Equatable {
     let insertSourceFileTitles: Bool
     let mergedPath: String
     let reportPath: String
@@ -421,6 +422,22 @@ private struct SidebarView: View {
     let onOpen: () -> Void
     let onReveal: () -> Void
     let onShowReport: () -> Void
+
+    static func == (lhs: SidebarView, rhs: SidebarView) -> Bool {
+        lhs.insertSourceFileTitles == rhs.insertSourceFileTitles &&
+        lhs.mergedPath == rhs.mergedPath &&
+        lhs.reportPath == rhs.reportPath &&
+        lhs.hasOutputOverride == rhs.hasOutputOverride &&
+        lhs.canChooseOutput == rhs.canChooseOutput &&
+        lhs.phase == rhs.phase &&
+        lhs.phaseTitle == rhs.phaseTitle &&
+        lhs.progressValue == rhs.progressValue &&
+        lhs.showsProgress == rhs.showsProgress &&
+        lhs.statusText == rhs.statusText &&
+        lhs.reportActivities == rhs.reportActivities &&
+        lhs.isCompactWidth == rhs.isCompactWidth &&
+        lhs.availableHeight == rhs.availableHeight
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
