@@ -34,6 +34,21 @@ public sealed class OutputFileWriterTests
         Assert.Equal("new-report", File.ReadAllText(outputPath));
     }
 
+    [Fact]
+    public void CommitTemporaryFile_creates_parent_directory_for_nested_destination()
+    {
+        using var sandbox = new TemporaryDirectory();
+        var outputPath = Path.Combine(sandbox.Path, "nested", "merge-report.json");
+        var tempPath = Path.Combine(sandbox.Path, "staged.json");
+
+        File.WriteAllText(tempPath, "new-report");
+
+        OutputFileWriter.CommitTemporaryFile(tempPath, outputPath);
+
+        Assert.False(File.Exists(tempPath));
+        Assert.Equal("new-report", File.ReadAllText(outputPath));
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         private readonly DirectoryInfo _directory;
