@@ -42,25 +42,47 @@ internal sealed class MergeContext
     public static MergeContext Create(MainDocumentPart mainPart, MergePolicy policy)
     {
         var context = new MergeContext(mainPart, policy);
-        var roots = OpenXmlPartHelpers.EnumerateRootElements(mainPart).ToArray();
+        uint nextBookmarkId = 0;
+        uint nextDocPropertiesId = 0;
+        uint nextPictureId = 0;
 
-        context._nextBookmarkId = OpenXmlPartHelpers.NextUIntId(
-            roots.SelectMany(root => root.Descendants<BookmarkStart>()).Select(item => item.Id?.Value));
-        context.BookmarkNames.UnionWith(
-            roots
-                .SelectMany(root => root.Descendants<BookmarkStart>())
-                .Select(item => item.Name?.Value)
-                .Where(name => !string.IsNullOrWhiteSpace(name))!);
-        context._nextDocPropertiesId = roots
-            .SelectMany(root => root.Descendants<DocumentFormat.OpenXml.Drawing.Wordprocessing.DocProperties>())
-            .Select(item => item.Id?.Value ?? 0U)
-            .DefaultIfEmpty()
-            .Max() + 1;
-        context._nextPictureId = roots
-            .SelectMany(root => root.Descendants<DocumentFormat.OpenXml.Drawing.Pictures.NonVisualDrawingProperties>())
-            .Select(item => item.Id?.Value ?? 0U)
-            .DefaultIfEmpty()
-            .Max() + 1;
+        foreach (var root in OpenXmlPartHelpers.EnumerateRootElements(mainPart))
+        {
+            foreach (var bookmarkStart in root.Descendants<BookmarkStart>())
+            {
+                if (uint.TryParse(bookmarkStart.Id?.Value, out var bookmarkId) && bookmarkId > nextBookmarkId)
+                {
+                    nextBookmarkId = bookmarkId;
+                }
+
+                if (!string.IsNullOrWhiteSpace(bookmarkStart.Name?.Value))
+                {
+                    context.BookmarkNames.Add(bookmarkStart.Name!.Value!);
+                }
+            }
+
+            foreach (var docProperties in root.Descendants<DocumentFormat.OpenXml.Drawing.Wordprocessing.DocProperties>())
+            {
+                var docPropertiesId = docProperties.Id?.Value ?? 0U;
+                if (docPropertiesId > nextDocPropertiesId)
+                {
+                    nextDocPropertiesId = docPropertiesId;
+                }
+            }
+
+            foreach (var pictureProperties in root.Descendants<DocumentFormat.OpenXml.Drawing.Pictures.NonVisualDrawingProperties>())
+            {
+                var pictureId = pictureProperties.Id?.Value ?? 0U;
+                if (pictureId > nextPictureId)
+                {
+                    nextPictureId = pictureId;
+                }
+            }
+        }
+
+        context._nextBookmarkId = nextBookmarkId + 1;
+        context._nextDocPropertiesId = nextDocPropertiesId + 1;
+        context._nextPictureId = nextPictureId + 1;
         context._nextFootnoteId = OpenXmlPartHelpers.NextIntId(
             mainPart.FootnotesPart?.Footnotes?.Elements<Footnote>().Select(item => item.Id?.Value.ToString()) ?? []);
         context._nextEndnoteId = OpenXmlPartHelpers.NextIntId(
