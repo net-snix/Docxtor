@@ -15,20 +15,12 @@ public sealed class JsonReportWriter
 
     public async Task WriteAsync(MergeReport report, string reportPath, CancellationToken cancellationToken = default)
     {
-        var directory = Path.GetDirectoryName(reportPath);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        var tempPath = Path.Combine(
-            directory ?? Directory.GetCurrentDirectory(),
-            $".{Path.GetFileName(reportPath)}.{Guid.NewGuid():N}.tmp");
+        var tempPath = OutputFileWriter.CreateTemporarySiblingPath(reportPath);
 
         await using var stream = File.Create(tempPath);
         await JsonSerializer.SerializeAsync(stream, report, JsonOptions, cancellationToken);
         await stream.FlushAsync(cancellationToken);
 
-        File.Move(tempPath, reportPath, overwrite: true);
+        OutputFileWriter.CommitTemporaryFile(tempPath, reportPath);
     }
 }
