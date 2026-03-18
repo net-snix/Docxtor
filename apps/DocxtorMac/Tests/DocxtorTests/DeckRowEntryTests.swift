@@ -18,6 +18,9 @@ final class DeckRowEntryTests: XCTestCase {
         XCTAssertEqual(initial.map(\.id), [first.id, second.id])
         XCTAssertEqual(reordered.map(\.id), [second.id, first.id])
         XCTAssertEqual(reordered.map(\.position), [1, 2])
+        XCTAssertEqual(initial.map(\.positionLabel), ["01", "02"])
+        XCTAssertEqual(reordered.map(\.displayName), ["two.docx", "one.docx"])
+        XCTAssertEqual(reordered.map(\.directoryPath), ["/tmp/docs", "/tmp/docs"])
     }
 
     func testMakeEntriesOnlyShowsDividerBeforeLastRow() {

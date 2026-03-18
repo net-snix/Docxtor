@@ -20,28 +20,26 @@ struct EmptyDeckView: View {
 }
 
 struct DeckRow: View {
-    let index: Int
-    let item: InputDocument
+    let row: DeckRowEntry
     let isSelected: Bool
-    let showsDivider: Bool
     let onToggleSelection: () -> Void
     let onRemove: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 14) {
-                Text(String(format: "%02d", index))
+                Text(row.positionLabel)
                     .font(StudioType.strong(13))
                     .foregroundStyle(StudioPalette.ink)
                     .frame(width: 32)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(item.displayName)
+                    Text(row.displayName)
                         .font(StudioType.strong(14))
                         .foregroundStyle(StudioPalette.ink)
                         .lineLimit(1)
 
-                    Text(item.directoryPath)
+                    Text(row.directoryPath)
                         .font(StudioType.mono(11))
                         .foregroundStyle(StudioPalette.slate)
                         .lineLimit(1)
@@ -69,7 +67,7 @@ struct DeckRow: View {
                 }
             }
 
-            if showsDivider {
+            if row.showsDivider {
                 Rectangle()
                     .fill(StudioPalette.cloud.opacity(0.32))
                     .frame(height: 1)

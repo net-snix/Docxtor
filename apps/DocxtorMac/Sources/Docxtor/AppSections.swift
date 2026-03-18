@@ -221,7 +221,10 @@ struct WorkspaceSurfaceView: View {
 struct DeckRowEntry: Identifiable, Equatable {
     let id: InputDocument.ID
     let position: Int
+    let positionLabel: String
     let item: InputDocument
+    let displayName: String
+    let directoryPath: String
     let showsDivider: Bool
 
     static func makeEntries(for inputItems: [InputDocument]) -> [DeckRowEntry] {
@@ -231,7 +234,10 @@ struct DeckRowEntry: Identifiable, Equatable {
             DeckRowEntry(
                 id: item.id,
                 position: index + 1,
+                positionLabel: String(format: "%02d", index + 1),
                 item: item,
+                displayName: item.url.lastPathComponent,
+                directoryPath: item.url.deletingLastPathComponent().path,
                 showsDivider: index < lastIndex
             )
         }
@@ -327,10 +333,8 @@ private struct DeckAreaView: View, @MainActor Equatable {
                             LazyVStack(spacing: 0) {
                                 ForEach(rows) { row in
                                     DeckRow(
-                                        index: row.position,
-                                        item: row.item,
+                                        row: row,
                                         isSelected: selectedIDs.contains(row.id),
-                                        showsDivider: row.showsDivider,
                                         onToggleSelection: { onToggleSelection(row.id) },
                                         onRemove: { onRemove(row.id) }
                                     )
