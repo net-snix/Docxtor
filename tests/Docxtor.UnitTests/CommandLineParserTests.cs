@@ -30,4 +30,20 @@ public sealed class CommandLineParserTests
         Assert.Equal(ExternalResourceMode.Materialize, options.ExternalResourceMode);
         Assert.Equal(LogFormat.Json, options.LogFormat);
     }
+
+    [Fact]
+    public void Parse_rejects_unknown_boundary_mode()
+    {
+        var (_, error) = new CommandLineParser().Parse(["--boundary", "sideways"]);
+
+        Assert.Equal("Unknown boundary mode 'sideways'.", error);
+    }
+
+    [Fact]
+    public void Parse_rejects_missing_log_format_value()
+    {
+        var (_, error) = new CommandLineParser().Parse(["--log-format"]);
+
+        Assert.Equal("Option '--log-format' requires a value.", error);
+    }
 }
