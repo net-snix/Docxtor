@@ -10,14 +10,6 @@ struct InputDocument: Identifiable, Equatable {
         self.id = id
         self.url = url
     }
-
-    var displayName: String {
-        url.lastPathComponent
-    }
-
-    var directoryPath: String {
-        url.deletingLastPathComponent().path
-    }
 }
 
 struct MergeActivityItem: Identifiable, Equatable {
