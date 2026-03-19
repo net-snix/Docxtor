@@ -549,6 +549,7 @@ private struct SidebarView: View, @MainActor Equatable {
                 phase: phase,
                 minHeight: reportHeight
             )
+            .equatable()
         }
     }
 
