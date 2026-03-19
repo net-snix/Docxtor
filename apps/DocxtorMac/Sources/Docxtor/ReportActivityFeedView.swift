@@ -1,9 +1,16 @@
 import SwiftUI
 
-struct ReportActivityFeedView: View {
+@MainActor
+struct ReportActivityFeedView: View, Equatable {
     let activities: [MergeActivityItem]
     let phase: MergeViewModel.Phase
     let minHeight: CGFloat
+
+    nonisolated static func == (lhs: ReportActivityFeedView, rhs: ReportActivityFeedView) -> Bool {
+        lhs.activities == rhs.activities &&
+        lhs.phase == rhs.phase &&
+        lhs.minHeight == rhs.minHeight
+    }
 
     var body: some View {
         ScrollView {
