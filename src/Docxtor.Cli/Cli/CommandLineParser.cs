@@ -41,44 +41,44 @@ internal sealed class CommandLineParser
                     break;
                 case "--config":
                 case "--manifest":
-                    options = options with { ConfigPath = ReadRequiredValue(args, ref index, argument, out var configError) };
-                    if (configError is not null)
+                    if (!TryReadRequiredValue(args, ref index, argument, out var configPath, out var configError))
                     {
                         return (null, configError);
                     }
 
+                    options = options with { ConfigPath = configPath };
                     break;
                 case "--output":
-                    options = options with { OutputPath = ReadRequiredValue(args, ref index, argument, out var outputError) };
-                    if (outputError is not null)
+                    if (!TryReadRequiredValue(args, ref index, argument, out var outputPath, out var outputError))
                     {
                         return (null, outputError);
                     }
 
+                    options = options with { OutputPath = outputPath };
                     break;
                 case "--report":
-                    options = options with { ReportPath = ReadRequiredValue(args, ref index, argument, out var reportError), EmitReport = true };
-                    if (reportError is not null)
+                    if (!TryReadRequiredValue(args, ref index, argument, out var reportPath, out var reportError))
                     {
                         return (null, reportError);
                     }
 
+                    options = options with { ReportPath = reportPath, EmitReport = true };
                     break;
                 case "--template":
-                    options = options with { TemplatePath = ReadRequiredValue(args, ref index, argument, out var templateError) };
-                    if (templateError is not null)
+                    if (!TryReadRequiredValue(args, ref index, argument, out var templatePath, out var templateError))
                     {
                         return (null, templateError);
                     }
 
+                    options = options with { TemplatePath = templatePath };
                     break;
                 case "--backend":
-                    options = options with { Backend = ReadRequiredValue(args, ref index, argument, out var backendError) };
-                    if (backendError is not null)
+                    if (!TryReadRequiredValue(args, ref index, argument, out var backend, out var backendError))
                     {
                         return (null, backendError);
                     }
 
+                    options = options with { Backend = backend };
                     break;
                 case "--boundary":
                     if (!TryReadParsedOption<BoundaryMode>(
@@ -261,17 +261,24 @@ internal sealed class CommandLineParser
             """;
     }
 
-    private static string? ReadRequiredValue(IReadOnlyList<string> args, ref int index, string optionName, out string? error)
+    private static bool TryReadRequiredValue(
+        IReadOnlyList<string> args,
+        ref int index,
+        string optionName,
+        out string? value,
+        out string? error)
     {
         error = null;
         if (index + 1 >= args.Count || args[index + 1].StartsWith("--", StringComparison.Ordinal))
         {
             error = $"Option '{optionName}' requires a value.";
-            return null;
+            value = null;
+            return false;
         }
 
         index++;
-        return args[index];
+        value = args[index];
+        return true;
     }
 
     private static bool ReadOptionalBoolean(IReadOnlyList<string> args, ref int index)
@@ -299,8 +306,7 @@ internal sealed class CommandLineParser
         out TValue value,
         out string? error)
     {
-        var rawValue = ReadRequiredValue(args, ref index, optionName, out error);
-        if (error is not null)
+        if (!TryReadRequiredValue(args, ref index, optionName, out var rawValue, out error))
         {
             value = default!;
             return false;

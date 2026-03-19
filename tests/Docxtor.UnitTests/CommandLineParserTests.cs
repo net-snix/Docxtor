@@ -46,4 +46,12 @@ public sealed class CommandLineParserTests
 
         Assert.Equal("Option '--log-format' requires a value.", error);
     }
+
+    [Fact]
+    public void Parse_rejects_missing_config_value()
+    {
+        var (_, error) = new CommandLineParser().Parse(["--config"]);
+
+        Assert.Equal("Option '--config' requires a value.", error);
+    }
 }
