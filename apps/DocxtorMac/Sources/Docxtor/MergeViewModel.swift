@@ -75,6 +75,8 @@ final class MergeViewModel: ObservableObject {
     @Published private(set) var resolvedOutputURL: URL?
     @Published private(set) var resolvedReportURL: URL?
     @Published private(set) var outputOverrideURL: URL?
+    @Published private(set) var canMoveSelectionUp = false
+    @Published private(set) var canMoveSelectionDown = false
     @Published var insertSourceFileTitles: Bool {
         didSet {
             preferences.setInsertSourceFileTitles(insertSourceFileTitles)
@@ -82,8 +84,6 @@ final class MergeViewModel: ObservableObject {
     }
 
     private var selectedIndices: [Int] = []
-    private var canMoveSelectionUpCache = false
-    private var canMoveSelectionDownCache = false
 
     private let runner: MergeRunner
     private let preferences: AppPreferencesStore
@@ -130,14 +130,6 @@ final class MergeViewModel: ObservableObject {
         !selectedInputIDs.isEmpty
     }
 
-    var canMoveSelectionUp: Bool {
-        canMoveSelectionUpCache
-    }
-
-    var canMoveSelectionDown: Bool {
-        canMoveSelectionDownCache
-    }
-
     var successOutputURL: URL? {
         if case .succeeded(let outputURL, _) = phase {
             return outputURL
@@ -165,7 +157,6 @@ final class MergeViewModel: ObservableObject {
             } else {
                 selectedInputIDs = selectedInputIDs.union([id])
             }
-
             return
         }
 
@@ -378,8 +369,8 @@ final class MergeViewModel: ObservableObject {
         selectedIndices = inputItems.enumerated().compactMap { index, item in
             selectedInputIDs.contains(item.id) ? index : nil
         }
-        canMoveSelectionUpCache = selectedIndices.contains { $0 > 0 }
-        canMoveSelectionDownCache = selectedIndices.contains { $0 < inputItems.count - 1 }
+        canMoveSelectionUp = selectedIndices.contains { $0 > 0 }
+        canMoveSelectionDown = selectedIndices.contains { $0 < inputItems.count - 1 }
     }
 
     private func handle(_ result: Result<HelperEvent, Error>, for runToken: UUID) {
