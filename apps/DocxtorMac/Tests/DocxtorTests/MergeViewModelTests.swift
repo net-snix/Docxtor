@@ -278,7 +278,7 @@ final class MergeViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.deckRows.map(\.showsDivider), [false])
     }
 
-    func testSelectionMovementFlagsTrackSelectionAndReordering() {
+    func testSelectionMoveFlagsUpdateWithSelectionAndReorder() {
         let viewModel = MergeViewModel(runner: TestMergeRunner(), preferences: TestPreferences())
         let one = URL(fileURLWithPath: "/tmp/docs/one.docx")
         let two = URL(fileURLWithPath: "/tmp/docs/two.docx")
@@ -293,6 +293,10 @@ final class MergeViewModelTests: XCTestCase {
 
         viewModel.moveSelectionDown()
         XCTAssertTrue(viewModel.canMoveSelectionUp)
+        XCTAssertFalse(viewModel.canMoveSelectionDown)
+
+        viewModel.removeSelectedInputs()
+        XCTAssertFalse(viewModel.canMoveSelectionUp)
         XCTAssertFalse(viewModel.canMoveSelectionDown)
     }
 

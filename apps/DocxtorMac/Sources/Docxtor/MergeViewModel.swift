@@ -61,7 +61,11 @@ final class MergeViewModel: ObservableObject {
 
     @Published private(set) var inputItems: [InputDocument] = []
     private(set) var deckRows: [DeckRowEntry] = []
-    @Published var selectedInputIDs: Set<InputDocument.ID> = []
+    @Published var selectedInputIDs: Set<InputDocument.ID> = [] {
+        didSet {
+            rebuildSelectionDerivedState()
+        }
+    }
     @Published private(set) var phase: Phase = .idle
     @Published private(set) var statusText = ""
     @Published private(set) var progressValue = 0.0
@@ -79,6 +83,8 @@ final class MergeViewModel: ObservableObject {
         }
     }
 
+    private var selectedIndices: [Int] = []
+
     private let runner: MergeRunner
     private let preferences: AppPreferencesStore
 
@@ -93,7 +99,7 @@ final class MergeViewModel: ObservableObject {
         self.preferences = preferences
         self.insertSourceFileTitles = preferences.insertSourceFileTitles
         refreshResolvedPaths()
-        refreshSelectionMovementState()
+        rebuildSelectionDerivedState()
     }
 
     var preferredInputDirectory: URL? {
@@ -147,22 +153,18 @@ final class MergeViewModel: ObservableObject {
     func selectInput(id: InputDocument.ID, additive: Bool = false) {
         if additive {
             if selectedInputIDs.contains(id) {
-                selectedInputIDs.remove(id)
+                selectedInputIDs = selectedInputIDs.subtracting([id])
             } else {
-                selectedInputIDs.insert(id)
+                selectedInputIDs = selectedInputIDs.union([id])
             }
-
-            refreshSelectionMovementState()
             return
         }
 
         if selectedInputIDs == [id] {
-            selectedInputIDs.removeAll()
+            selectedInputIDs = []
         } else {
             selectedInputIDs = [id]
         }
-
-        refreshSelectionMovementState()
     }
 
     func addInputURLs(_ urls: [URL]) {
@@ -176,7 +178,6 @@ final class MergeViewModel: ObservableObject {
 
         setInputItems(inputItems + filtered)
         refreshResolvedPaths()
-        refreshSelectionMovementState()
         preferences.setLastInputDirectory(filtered[0].url.deletingLastPathComponent())
 
         if outputOverrideURL == nil, let outputURL = resolvedOutputURL {
@@ -189,24 +190,21 @@ final class MergeViewModel: ObservableObject {
 
     func removeSelectedInputs() {
         setInputItems(inputItems.filter { !selectedInputIDs.contains($0.id) })
-        selectedInputIDs.removeAll()
-        refreshSelectionMovementState()
+        selectedInputIDs = []
         resetAfterInputMutation()
     }
 
     func removeInput(id: InputDocument.ID) {
         setInputItems(inputItems.filter { $0.id != id })
-        selectedInputIDs.remove(id)
-        refreshSelectionMovementState()
+        selectedInputIDs = selectedInputIDs.subtracting([id])
         resetAfterInputMutation()
     }
 
     func clearInputs() {
         setInputItems([])
-        selectedInputIDs.removeAll()
+        selectedInputIDs = []
         outputOverrideURL = nil
         refreshResolvedPaths()
-        refreshSelectionMovementState()
         phase = .idle
         statusText = ""
         showsProgress = false
@@ -304,14 +302,6 @@ final class MergeViewModel: ObservableObject {
         NSWorkspace.shared.open(url)
     }
 
-    private var selectedIndices: [Int] {
-        inputItems.enumerated()
-            .compactMap { index, item in
-                selectedInputIDs.contains(item.id) ? index : nil
-            }
-            .sorted()
-    }
-
     private func moveSelected(delta: Int) {
         let indices = selectedIndices
         guard !indices.isEmpty else {
@@ -332,19 +322,13 @@ final class MergeViewModel: ObservableObject {
         }
 
         setInputItems(updated)
-        refreshSelectionMovementState()
         resetOutcomeIfNeeded()
     }
 
     private func setInputItems(_ items: [InputDocument]) {
         inputItems = items
         deckRows = DeckRowEntry.makeEntries(for: items)
-    }
-
-    private func refreshSelectionMovementState() {
-        let indices = selectedIndices
-        canMoveSelectionUp = indices.contains { $0 > 0 }
-        canMoveSelectionDown = indices.contains { $0 < inputItems.count - 1 }
+        rebuildSelectionDerivedState()
     }
 
     private func resetAfterInputMutation() {
@@ -379,6 +363,14 @@ final class MergeViewModel: ObservableObject {
         let outputURL = outputOverrideURL ?? AppRunRequestBuilder.defaultOutputURL(for: inputItems.map(\.url))
         resolvedOutputURL = outputURL
         resolvedReportURL = outputURL.map(AppRunRequestBuilder.defaultReportURL(for:))
+    }
+
+    private func rebuildSelectionDerivedState() {
+        selectedIndices = inputItems.enumerated().compactMap { index, item in
+            selectedInputIDs.contains(item.id) ? index : nil
+        }
+        canMoveSelectionUp = selectedIndices.contains { $0 > 0 }
+        canMoveSelectionDown = selectedIndices.contains { $0 < inputItems.count - 1 }
     }
 
     private func handle(_ result: Result<HelperEvent, Error>, for runToken: UUID) {
