@@ -29,13 +29,19 @@ internal sealed class ManifestLoader
         }
 
         var fullPath = Path.GetFullPath(path);
+        var extension = Path.GetExtension(fullPath);
 
-        return Path.GetExtension(fullPath).ToLowerInvariant() switch
+        if (extension.Equals(".json", StringComparison.OrdinalIgnoreCase))
         {
-            ".json" => DeserializeJson(fullPath),
-            ".yaml" or ".yml" => DeserializeYaml(fullPath),
-            _ => throw new InvalidOperationException("Config file must be JSON or YAML."),
-        };
+            return DeserializeJson(fullPath);
+        }
+
+        if (extension.Equals(".yaml", StringComparison.OrdinalIgnoreCase) || extension.Equals(".yml", StringComparison.OrdinalIgnoreCase))
+        {
+            return DeserializeYaml(fullPath);
+        }
+
+        throw new InvalidOperationException("Config file must be JSON or YAML.");
     }
 
     private static ManifestFileModel? DeserializeJson(string fullPath)

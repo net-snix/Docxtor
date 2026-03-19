@@ -28,6 +28,27 @@ public sealed class ManifestLoaderTests
     }
 
     [Fact]
+    public void Load_parses_json_manifest_with_uppercase_extension()
+    {
+        using var sandbox = new TemporaryDirectory();
+        var manifestPath = Path.Combine(sandbox.Path, "manifest.JSON");
+        File.WriteAllText(
+            manifestPath,
+            """
+            {
+              "inputs": ["one.docx", "two.docx"],
+              "output": "out.docx"
+            }
+            """);
+
+        var manifest = new ManifestLoader().Load(manifestPath);
+
+        Assert.NotNull(manifest);
+        Assert.Equal(["one.docx", "two.docx"], manifest!.Inputs);
+        Assert.Equal("out.docx", manifest.Output);
+    }
+
+    [Fact]
     public void Load_parses_yaml_manifest()
     {
         using var sandbox = new TemporaryDirectory();
